@@ -1,10 +1,10 @@
 /* Offline support for GitHub Pages, including repositories in a subdirectory. */
 const ROOT=new URL('./',self.location.href);
 const PREFIX='bashgau:'+ROOT.pathname+':';
-const CACHE=PREFIX+'2026-11-23.1';
+const CACHE=PREFIX+'2026-11-23.2';
 const APP=new URL('index.html',ROOT).href;
 const ASSETS=['manifest.webmanifest','icon.png','icon-192.png','account.html','account.js','supabase-client.js',
- 'schedule-cloud.js','vendor/supabase-2.119.2.js'].map(path=>new URL(path,ROOT).href);
+ 'timetable-gate.js','timetable.js','schedule-cloud.js','vendor/supabase-2.119.2.js'].map(path=>new URL(path,ROOT).href);
 self.addEventListener('install',event=>event.waitUntil((async()=>{
  const cache=await caches.open(CACHE);
  const response=await fetch(new Request(APP,{cache:'reload'}));
