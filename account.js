@@ -3,16 +3,48 @@
   const el = id => document.getElementById(id);
   const status = el('status');
   const cloud = window.bgauCloud;
-  const roles = { student: 'Ученик', teacher: 'Преподаватель', admin: 'Администратор' };
+  const language = window.bgauAccountLanguage;
+  const { t } = language;
+  let currentNotice = '';
+  let signedInProfile = null;
 
-  function notify(message, error = false) {
-    status.textContent = message;
+  function notify(key, error = false) {
+    currentNotice = key;
+    status.textContent = key ? t(key) : '';
     status.dataset.error = String(error);
-    status.hidden = !message;
+    status.hidden = !key;
   }
 
+  function showLanguagePicker(show) {
+    el('languagePanel').hidden = !show;
+    el('accountContent').hidden = show;
+    el('changeLanguage').hidden = show;
+  }
+
+  el('changeLanguage').addEventListener('click', () => {
+    showLanguagePicker(true);
+    el('languagePanel').querySelector('[data-language]').focus();
+  });
+  el('languagePanel').addEventListener('click', event => {
+    const button = event.target.closest('[data-language]');
+    if (!button) return;
+    language.apply(button.dataset.language);
+    showLanguagePicker(false);
+    notify(currentNotice, status.dataset.error === 'true');
+    if (!cloud) { notify('noCloud', true); return; }
+    refreshMode();
+    signup.translate();
+    settings.translate();
+    if (signedInProfile) showProfile(signedInProfile);
+    if (role === 'admin') void loadAccounts();
+    void renderTop();
+    if (!el('authPanel').hidden) el('authTitle').focus();
+  });
+
+  language.updatePage();
+  showLanguagePicker(!language.selected);
   if (!cloud) {
-    notify('Для входа откройте сайт расписания через интернет.', true);
+    notify('noCloud', true);
     return;
   }
   const { client } = cloud;
@@ -23,6 +55,7 @@
   let mode = 'login', actor = null, role = '', generation = 0, listing = 0, search = '', offset = 0;
   let authBusy = false;
   let catalogPromise;
+  const studyModes = { 'Очная': 'fullTime', 'Очно-заочная': 'partTime', 'Заочная': 'distance' };
 
   function groups() {
     if (!catalogPromise) catalogPromise = (async () => {
@@ -38,23 +71,32 @@
     fields.append(el('profileFields').content.cloneNode(true));
     const field = name=>fields.querySelector(`[name="${name}"]`);
     const course=field('course'),group=field('group_key'),subgroup=field('subgroup');
+    const hint = fields.querySelector('.name-hint');
+    hint.id = id + '-name-hint';
+    ['last_name','first_name','patronymic'].forEach(name => field(name).setAttribute('aria-describedby', hint.id));
     let catalog=[];
     function populate(select,values,placeholder,selected='') {
       select.replaceChildren(new Option(placeholder,''));
       values.forEach(([value,label])=>select.append(new Option(label,String(value))));
       select.value=String(selected);
+      select.setCustomValidity('');
     }
     function populateSubgroups(selected='') {
       const selectedGroup=catalog.find(item=>item.group_key===group.value);
-      if(!selectedGroup){populate(subgroup,[],'Сначала выберите группу');return}
-      if(!selectedGroup.has_subgroups){populate(subgroup,[[0,'Без подгруппы']],'Подгруппа',0);return}
-      populate(subgroup,[[1,'Первая подгруппа'],[2,'Вторая подгруппа']],'Выберите подгруппу',selected);
+      if(!selectedGroup){populate(subgroup,[],t('groupFirst'));return}
+      if(!selectedGroup.has_subgroups){populate(subgroup,[[0,t('noSubgroup')]],t('subgroup'),0);return}
+      const pairs=[1,2].map(n=>[n,t('subgroupOption',{n})]);
+      populate(subgroup,pairs,t('chooseSubgroup'),selected);
     }
     function populateGroups(selected='',selectedSubgroup='') {
       const pairs=catalog.filter(item=>String(item.course)===course.value)
-        .map(item=>[item.group_key,item.label+' · '+item.study_mode]);
-      populate(group,pairs,course.value?'Выберите группу':'Сначала выберите курс',selected);
+        .map(item=>[item.group_key,item.label+' · '+(studyModes[item.study_mode] ? t(studyModes[item.study_mode]) : item.study_mode)]);
+      populate(group,pairs,t(course.value?'chooseGroup':'courseFirst'),selected);
       populateSubgroups(selectedSubgroup);
+    }
+    function populateCourses(selected) {
+      const courses=[...new Set(catalog.map(item=>item.course))].map(n=>[n,t('courseOption',{n})]);
+      populate(course,courses,t('chooseCourse'),selected);
     }
     course.addEventListener('change',()=>populateGroups());
     group.addEventListener('change',()=>populateSubgroups());
@@ -64,9 +106,13 @@
         if(!stillCurrent())return;
         catalog=loaded;
         ['first_name','last_name','patronymic','nickname'].forEach(name=>field(name).value=profile[name]||'');
-        const courses=[...new Set(catalog.map(item=>item.course))].map(number=>[number,number+' курс']);
-        populate(course,courses,'Выберите курс',catalog.find(item=>item.group_key===profile.group_key)?.course||'');
+        populateCourses(catalog.find(item=>item.group_key===profile.group_key)?.course||'');
         populateGroups(profile.group_key,profile.subgroup);
+      },
+      translate() {
+        const groupKey=group.value, subgroupNumber=subgroup.value;
+        populateCourses(course.value);
+        populateGroups(groupKey,subgroupNumber);
       },
       payload() {
         const profile={};
@@ -81,42 +127,67 @@
 
   const signup = academicFields('signupFields');
   const settings = academicFields('settingsFields');
+  language.updatePage();
 
-  function setMode(value) {
-    mode = value;
-    const recovering = value === 'update', reset = value === 'reset';
+  function refreshMode() {
+    const recovering = mode === 'update', reset = mode === 'reset', registering = mode === 'signup';
+    el('authTitle').textContent = t(mode + 'Title');
+    el('authIntro').textContent = t(mode + 'Intro');
+    el('authPanel').querySelector('.auth-modes').hidden = recovering;
     el('emailLabel').hidden = recovering;
     el('authEmail').required = !recovering;
+    el('authEmail').setCustomValidity('');
     el('passwordLabel').hidden = reset;
     el('authPassword').required = !reset;
-    el('authPassword').minLength = value === 'signup' || recovering ? 8 : 0;
-    el('authPassword').autocomplete = value === 'login' ? 'current-password' : 'new-password';
-    el('authPassword').value = '';
-    el('signupFields').hidden=el('signupFields').disabled=value!=='signup';
-    if(value==='signup')void signup.fill({},()=>mode==='signup').catch(()=>notify('Не удалось загрузить список групп.',true));
+    el('authPassword').setCustomValidity('');
+    el('authPassword').minLength = registering || recovering ? 8 : 0;
+    el('authPassword').autocomplete = mode === 'login' ? 'current-password' : 'new-password';
+    el('passwordHint').hidden = !(registering || recovering);
+    el('signupFields').hidden=el('signupFields').disabled=!registering;
     el('recoveryButton').hidden = recovering;
-    el('recoveryButton').textContent = reset ? 'Вернуться ко входу' : 'Забыли пароль?';
-    el('authSubmit').textContent = { login: 'Войти', signup: 'Зарегистрироваться', reset: 'Отправить ссылку', update: 'Сохранить пароль' }[mode];
+    el('recoveryButton').textContent = t(reset ? 'backToLogin' : 'forgot');
+    el('authSubmit').textContent = t(mode + 'Submit');
     document.querySelectorAll('[data-auth-mode]').forEach(button => {
       button.setAttribute('aria-pressed', String(button.dataset.authMode === mode));
-      button.hidden = recovering;
     });
   }
 
+  function setMode(value) {
+    mode = value;
+    el('authPassword').value = '';
+    refreshMode();
+    if(value==='signup')void signup.fill({},()=>mode==='signup').catch(()=>notify('catalogError',true));
+  }
+
+  refreshMode();
+
   function authError(error) {
     const messages = {
-      invalid_credentials: 'Проверьте почту и пароль.',
-      email_not_confirmed: 'Подтвердите почту по ссылке из письма.',
-      signup_disabled: 'Регистрация сейчас отключена.',
-      over_email_send_rate_limit: 'Лимит писем исчерпан. Попробуйте позже.',
-      weak_password: 'Выберите более надёжный пароль.',
-      same_password: 'Укажите пароль, который отличается от предыдущего.',
-      otp_expired: 'Срок действия ссылки истёк. Запросите новую.',
-      profile_validation: 'Заполните имя, фамилию, группу и подгруппу.',
-      '22023': 'Проверьте группу и подгруппу.',
-      '23505': 'Этот псевдоним уже занят.'
+      invalid_credentials: 'invalidCredentials',
+      email_not_confirmed: 'emailNotConfirmed',
+      signup_disabled: 'signupDisabled',
+      over_email_send_rate_limit: 'emailLimit',
+      weak_password: 'weakPassword',
+      same_password: 'samePassword',
+      otp_expired: 'linkExpired',
+      profile_validation: 'profileValidation',
+      user_already_exists: 'emailTaken',
+      email_exists: 'emailTaken',
+      '22023': 'groupValidation',
+      '23505': 'nicknameTaken'
     };
-    return messages[error?.code] || 'Действие не выполнено. Проверьте соединение и попробуйте снова.';
+    return messages[error?.code] || 'authError';
+  }
+
+  function describeRole(account) {
+    const segments = [t(account.role || 'student')];
+    if (account.banned) segments.push(t('banned'));
+    return segments.join(' · ');
+  }
+
+  function showProfile(account) {
+    el('profileRole').textContent = describeRole(account);
+    el('ownNickname').textContent = t('yourNickname', { nick: account.nickname });
   }
 
   async function syncSession(event, session) {
@@ -125,6 +196,7 @@
     const request = ++generation;
     actor = session?.user || null;
     role = '';
+    signedInProfile = null;
     el('accounts').replaceChildren();
     el('paging').hidden = true;
     el('adminPanel').hidden = true;
@@ -146,15 +218,16 @@
 
     el('authPanel').hidden = true;
     el('profile').hidden = false;
-    el('profileRole').textContent = 'Проверяем роль…';
+    el('profileRole').textContent = t('roleChecking');
     el('profileEmail').textContent = actor.email || '';
     try {
       const {data:account,error}=await client.rpc('bgau_my_profile');
       if(error||!account)throw error||new Error('Account not found');
       if (request !== generation) return;
       role=account.role;
-      el('profileRole').textContent=(roles[role]||roles.student)+(account.banned?' · заблокирован':'');
-      if(account.banned){notify('Доступ к расписанию заблокирован администратором.',true);return}
+      signedInProfile = account;
+      showProfile(account);
+      if(account.banned){notify('banNotice',true);return}
       if(nextSchedule&&(account.profile||role==='admin')) {
         const { data: access, error: accessError } = await client.rpc('bgau_access_status');
         if (request !== generation) return;
@@ -162,9 +235,8 @@
         if (access === 'ready') { location.replace(new URL('./',location.href).href); return; }
       }
       el('profileSettings').hidden=false;
-      el('ownNickname').textContent='Ваш псевдоним в топе — '+account.nickname;
       el('avatarForm').hidden=!account.profile;
-      if(nextSchedule&&!account.profile)notify('Заполните профиль, чтобы открыть расписание.');
+      if(nextSchedule&&!account.profile)notify('profileRequired');
       el('settingsFields').disabled = true;
       el('profileSave').disabled = true;
       void settings.fill(account.profile||{},()=>request===generation).then(() => {
@@ -172,7 +244,7 @@
         el('settingsFields').disabled = false;
         el('profileSave').disabled = false;
       }).catch(() => {
-        if (request === generation) notify('Не удалось загрузить список групп.',true);
+        if (request === generation) notify('catalogError',true);
       });
       if(account.profile)void loadOwnAvatar(request);
       if (role === 'admin') {
@@ -182,8 +254,8 @@
       }
     } catch {
       if (request !== generation) return;
-      el('profileRole').textContent = 'Роль недоступна';
-      notify('Не удалось проверить права аккаунта. Попробуйте обновить страницу.', true);
+      el('profileRole').textContent = t('roleUnknown');
+      notify('roleError', true);
     }
   }
 
@@ -193,18 +265,18 @@
     const message = el('listStatus');
     el('paging').hidden = true;
     list.replaceChildren();
-    message.textContent = 'Загрузка пользователей…';
+    message.textContent = t('adminLoading');
     try {
       const { data, error } = await client.rpc('bgau_list_members', { p_search: search, p_offset: offset });
       if (error) throw error;
       if (actorVersion !== generation || request !== listing) return;
       for (const account of data.slice(0, pageSize)) list.append(accountRow(account));
-      message.textContent = data.length ? '' : 'Пользователи не найдены.';
+      message.textContent = data.length ? '' : t('adminEmpty');
       el('prevPage').disabled = offset === 0;
       el('nextPage').disabled = data.length <= pageSize;
       el('paging').hidden = offset === 0 && data.length <= pageSize;
     } catch {
-      if (actorVersion === generation && request === listing) message.textContent = 'Не удалось загрузить пользователей.';
+      if (actorVersion === generation && request === listing) message.textContent = t('adminError');
     }
   }
 
@@ -213,19 +285,19 @@
     item.className = 'user';
     const details = document.createElement('div');
     const email = document.createElement('strong');
-    email.textContent = account.email || 'Почта не указана';
+    email.textContent = account.email || t('noEmail');
     const description = document.createElement('p');
-    description.textContent = (roles[account.role]||roles.student)+(account.banned?' · заблокирован':'')+(account.confirmed?'':' · почта не подтверждена');
+    description.textContent = describeRole(account)+(account.confirmed?'':' · '+t('pendingEmail'));
     details.append(email, description);
     const fullName=[account.last_name,account.first_name,account.patronymic].filter(Boolean).join(' ');
     if(fullName){const name=document.createElement('p');name.textContent=fullName;details.append(name)}
     if(account.group_label){
       const group=document.createElement('p');
-      group.textContent=[account.group_label,account.course+' курс',account.subgroup?'Подгруппа '+account.subgroup:'Без подгруппы'].join(' · ');
+      group.textContent=[account.group_label,t('courseOption',{n:account.course}),account.subgroup?t('subgroupOption',{n:account.subgroup}):t('noSubgroup')].join(' · ');
       details.append(group);
     }
     const activity=document.createElement('p');
-    activity.textContent=`Сегодня — ${account.today_visits}, всего — ${account.total_visits}`;
+    activity.textContent=t('visitStats',{today:account.today_visits,total:account.total_visits});
     details.append(activity);
     item.append(details);
     const actions=document.createElement('div');
@@ -233,16 +305,16 @@
     item.append(actions);
     if(account.has_avatar){
       const show=document.createElement('button');
-      show.type='button';show.textContent='Показать аватар';
+      show.type='button';show.textContent=t('showAvatar');
       show.addEventListener('click',async()=>{
         show.disabled=true;
         try{
           const avatar=await getAvatar(account.user_id);
           if(!avatar||!item.isConnected)return;
           const image=document.createElement('img');
-          image.className='avatar';image.alt='Аватар пользователя';image.src=avatar;
+          image.className='avatar';image.alt=t('memberAvatar');image.src=avatar;
           details.prepend(image);show.remove();
-        }catch{notify('Не удалось открыть аватар.',true)}finally{show.disabled=false}
+        }catch{notify('memberAvatarError',true)}finally{show.disabled=false}
       });
       actions.append(show);
     }
@@ -251,7 +323,7 @@
     const nextRole = account.role === 'teacher' ? 'student' : 'teacher';
     const change = document.createElement('button');
     change.type = 'button';
-    change.textContent = nextRole === 'teacher' ? 'Назначить преподавателем' : 'Вернуть роль ученика';
+    change.textContent = t(nextRole === 'teacher' ? 'promote' : 'demote');
     change.disabled = nextRole === 'teacher' && !account.confirmed;
     change.addEventListener('click', async () => {
       const actorVersion = generation;
@@ -260,19 +332,19 @@
         const { error } = await client.rpc('bgau_assign_role', { p_user_id: account.user_id, p_role: nextRole });
         if (error) throw error;
         if (actorVersion !== generation) return;
-        notify('Роль изменена.');
+        notify('roleChanged');
         item.replaceWith(accountRow({ ...account, role: nextRole }));
       } catch {
         if (actorVersion !== generation) return;
         change.disabled = false;
-        notify('Не удалось изменить роль. Обновите список и проверьте права.', true);
+        notify('roleChangeError', true);
       }
     });
     actions.append(change);
     const ban=document.createElement('button');
-    ban.type='button';ban.textContent=account.banned?'Разблокировать':'Заблокировать';
+    ban.type='button';ban.textContent=t(account.banned?'unblock':'block');
     ban.addEventListener('click',async()=>{
-      if(!account.banned&&!window.confirm('Заблокировать доступ пользователя к расписанию?'))return;
+      if(!account.banned&&!window.confirm(t('confirmBan')))return;
       const actorVersion=generation;
       ban.disabled=true;
       try{
@@ -280,9 +352,9 @@
         if(error)throw error;
         if(actorVersion!==generation)return;
         item.replaceWith(accountRow({...account,banned:!account.banned}));
-        notify(account.banned?'Пользователь разблокирован.':'Пользователь заблокирован.');
+        notify(account.banned?'memberUnblocked':'memberBlocked');
         void renderTop();
-      }catch{if(actorVersion===generation)notify('Не удалось изменить доступ пользователя.',true)}
+      }catch{if(actorVersion===generation)notify('accessChangeError',true)}
       finally{ban.disabled=false}
     });
     actions.append(ban);
@@ -300,9 +372,9 @@
         item.textContent = account.nickname;
         return item;
       }));
-      message.textContent = data.length ? '' : 'Посещений пока нет.';
+      message.textContent = data.length ? '' : t('noVisits');
     } catch {
-      message.textContent = 'Не удалось загрузить топ.';
+      message.textContent = t('topError');
     }
   }
 
@@ -321,15 +393,15 @@
       else image.removeAttribute('src');
       image.hidden = el('removeAvatar').hidden = !src;
     } catch {
-      if (request === generation) notify('Не удалось загрузить аватар.', true);
+      if (request === generation) notify('avatarLoadError', true);
     }
   }
 
   async function compressAvatar(file) {
     if (!file || !['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 8 * 1024 * 1024) {
-      throw new Error('Выберите изображение JPEG, PNG или WebP до 8 МБ.');
+      throw new Error('avatarFileError');
     }
-    const bitmap = await createImageBitmap(file).catch(() => { throw new Error('Не удалось открыть изображение.'); });
+    const bitmap = await createImageBitmap(file).catch(() => { throw new Error('avatarDecodeError'); });
     try {
       const size = Math.min(bitmap.width, bitmap.height);
       const canvas = document.createElement('canvas');
@@ -354,21 +426,34 @@
       let image = null;
       if (!remove) {
         try { image = await compressAvatar(el('avatarFile').files[0]); }
-        catch (error) { if (request === generation) notify(error.message, true); return; }
+        catch (error) {
+          if (request === generation) notify(error.message === 'avatarFileError' ? 'avatarFileError' : 'avatarDecodeError', true);
+          return;
+        }
       }
       if (request !== generation) return;
       const { error } = await client.rpc('bgau_set_avatar', { p_jpeg: image });
       if (error) throw error;
       if (request !== generation) return;
       el('avatarFile').value = '';
-      notify(remove ? 'Аватар удалён.' : 'Аватар сохранён.');
+      notify(remove ? 'avatarRemoved' : 'avatarSaved');
       await loadOwnAvatar(request);
       if (role === 'admin' && request === generation) await loadAccounts();
     } catch {
-      if (request === generation) notify('Не удалось сохранить аватар.', true);
+      if (request === generation) notify('avatarSaveError', true);
     } finally {
       upload.disabled = removeButton.disabled = false;
     }
+  }
+
+  for (const form of [el('authForm'), el('profileForm')]) {
+    form.addEventListener('invalid', event => {
+      const input = event.target;
+      if (input.validity.valueMissing) input.setCustomValidity(t('requiredField'));
+      else if (input.validity.typeMismatch) input.setCustomValidity(t('invalidEmail'));
+      else if (input.validity.tooShort) input.setCustomValidity(t('minimumLength',{n:input.minLength}));
+    }, true);
+    form.addEventListener('input', event => event.target.setCustomValidity(''));
   }
 
   document.querySelectorAll('[data-auth-mode]').forEach(button => button.addEventListener('click', () => {
@@ -397,16 +482,19 @@
       if (action === 'update') response = await client.auth.updateUser({ password });
       if (response.error) throw response.error;
       el('authPassword').value = '';
-      if (action === 'signup' && !response.data.session) {
-        setMode('login');
-        notify('Если регистрация доступна для этой почты, Supabase пришлёт ссылку для подтверждения.');
+      if (action === 'signup') {
+        if (response.data.session) location.replace(new URL('./', location.href).href);
+        else {
+          setMode('login');
+          notify('confirmFallback');
+        }
       }
-      if (action === 'reset') notify('Если аккаунт существует, на почту придёт ссылка для смены пароля.');
+      if (action === 'reset') notify('recoverySent');
       if (action === 'update') {
         setMode('login');
         const { data } = await client.auth.getSession();
         await syncSession('USER_UPDATED', data.session);
-        notify('Пароль обновлён.');
+        notify('passwordSaved');
       }
     } catch (error) {
       notify(authError(error), true);
@@ -422,7 +510,7 @@
       if (error) throw error;
       notify('');
     } catch {
-      notify('Не удалось выйти из аккаунта. Попробуйте снова.', true);
+      notify('signOutError', true);
     } finally {
       el('signOut').disabled = false;
     }
@@ -437,7 +525,7 @@
       const { error } = await client.rpc('bgau_save_profile', { p_profile: settings.payload() });
       if (error) throw error;
       if (request !== generation) return;
-      notify('Профиль сохранён.');
+      notify('profileSaved');
       void renderTop();
       const { data } = await client.auth.getSession();
       if (request === generation) await syncSession('PROFILE_SAVED', data.session);
@@ -459,8 +547,7 @@
   el('nextPage').addEventListener('click', () => { offset += pageSize; void loadAccounts(); });
 
   const fragment = new URLSearchParams(location.hash.slice(1));
-  if (params.has('error') || fragment.has('error')) notify('Ссылка устарела или недействительна. Запросите новую.', true);
-  else if (nextSchedule && !params.has('reason')) notify('Войдите или зарегистрируйтесь, чтобы открыть расписание.');
+  if (params.has('error') || fragment.has('error')) notify('linkExpired', true);
   void renderTop();
   client.auth.onAuthStateChange((event, session) => {
     setTimeout(() => void syncSession(event, session), 0);
