@@ -53,6 +53,7 @@
   const params = new URLSearchParams(location.search);
   const nextSchedule = params.get('next') === 'schedule';
   let mode = 'login', actor = null, role = '', generation = 0, listing = 0, search = '', offset = 0;
+  let signupStep = 0;
   let authBusy = false;
   let catalogPromise;
   const studyModes = { 'Очная': 'fullTime', 'Очно-заочная': 'partTime', 'Заочная': 'distance' };
@@ -68,7 +69,14 @@
 
   function academicFields(id) {
     const fields = el(id);
-    fields.append(el('profileFields').content.cloneNode(true));
+    const content = el('profileFields').content.cloneNode(true);
+    if (id === 'signupFields') {
+      content.querySelector('legend').remove();
+      el('signupIdentity').append(...content.querySelectorAll('[data-identity]'));
+      el('signupStudy').append(content);
+    } else {
+      fields.append(content);
+    }
     const field = name=>fields.querySelector(`[name="${name}"]`);
     const course=field('course'),group=field('group_key'),subgroup=field('subgroup');
     const hint = fields.querySelector('.name-hint');
@@ -114,6 +122,12 @@
         populateCourses(course.value);
         populateGroups(groupKey,subgroupNumber);
       },
+      validateName() {
+        const empty = ['first_name','last_name'].map(field).find(input => !input.value.trim());
+        if (!empty) return true;
+        empty.setCustomValidity(t('requiredField'));
+        return empty.reportValidity();
+      },
       payload() {
         const profile={};
         ['first_name','last_name','patronymic','group_key','subgroup','nickname'].forEach(name=>profile[name]=field(name).value.trim());
@@ -129,6 +143,27 @@
   const settings = academicFields('settingsFields');
   language.updatePage();
 
+  function displaySignupStep() {
+    const registering = mode === 'signup';
+    const onStudyStep = registering && signupStep === 1;
+    const onIdentityStep = registering && !onStudyStep;
+    el('signupProgress').hidden = el('signupFields').hidden = !registering;
+    el('credentials').hidden = el('credentials').disabled = onStudyStep;
+    el('signupIdentity').hidden = el('signupIdentity').disabled = !onIdentityStep;
+    el('signupStudy').hidden = el('signupStudy').disabled = !onStudyStep;
+    el('signupBack').hidden = !onStudyStep;
+    el('stepIdentity').toggleAttribute('data-done', onStudyStep);
+    el('stepIdentity').setAttribute('aria-current', onIdentityStep ? 'step' : 'false');
+    el('stepStudy').setAttribute('aria-current', onStudyStep ? 'step' : 'false');
+    el('authSubmit').textContent = t(onIdentityStep ? 'next' : mode + 'Submit');
+  }
+
+  function changeSignupStep(step) {
+    signupStep = step;
+    displaySignupStep();
+    el(step === 0 ? 'stepIdentity' : 'stepStudy').focus();
+  }
+
   function refreshMode() {
     const recovering = mode === 'update', reset = mode === 'reset', registering = mode === 'signup';
     el('authTitle').textContent = t(mode + 'Title');
@@ -143,10 +178,9 @@
     el('authPassword').minLength = registering || recovering ? 8 : 0;
     el('authPassword').autocomplete = mode === 'login' ? 'current-password' : 'new-password';
     el('passwordHint').hidden = !(registering || recovering);
-    el('signupFields').hidden=el('signupFields').disabled=!registering;
-    el('recoveryButton').hidden = recovering;
+    el('recoveryButton').hidden = recovering || registering;
     el('recoveryButton').textContent = t(reset ? 'backToLogin' : 'forgot');
-    el('authSubmit').textContent = t(mode + 'Submit');
+    displaySignupStep();
     document.querySelectorAll('[data-auth-mode]').forEach(button => {
       button.setAttribute('aria-pressed', String(button.dataset.authMode === mode));
     });
@@ -154,6 +188,7 @@
 
   function setMode(value) {
     mode = value;
+    signupStep = 0;
     el('authPassword').value = '';
     refreshMode();
     if(value==='signup')void signup.fill({},()=>mode==='signup').catch(()=>notify('catalogError',true));
@@ -457,7 +492,7 @@
   }
 
   document.querySelectorAll('[data-auth-mode]').forEach(button => button.addEventListener('click', () => {
-    if (authBusy) return;
+    if (authBusy || mode === button.dataset.authMode) return;
     notify('');
     setMode(button.dataset.authMode);
   }));
@@ -466,9 +501,16 @@
     notify('');
     setMode(mode === 'reset' ? 'login' : 'reset');
   });
+  el('signupBack').addEventListener('click', () => {
+    if (!authBusy) changeSignupStep(0);
+  });
   el('authForm').addEventListener('submit', async event => {
     event.preventDefault();
     if (authBusy) return;
+    if (mode === 'signup' && signupStep === 0) {
+      if (signup.validateName()) changeSignupStep(1);
+      return;
+    }
     authBusy = true;
     el('authSubmit').disabled = true;
     const email = el('authEmail').value.trim(), password = el('authPassword').value;

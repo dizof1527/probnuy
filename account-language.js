@@ -4,6 +4,9 @@
   const languages = ['ru', 'en', 'fr', 'es', 'pt'];
   const languageNames = ['Русский', 'English', 'Français', 'Español', 'Português'];
   const translations = {
+    signupProgress: ["Шаги регистрации","Registration steps","Étapes de l’inscription","Pasos del registro","Etapas do registo"],
+    signupIdentity: ["Данные аккаунта","Account details","Informations du compte","Datos de la cuenta","Dados da conta"],
+    signupStudy: ["Учёба и профиль","Studies and profile","Études et profil","Estudios y perfil","Estudos e perfil"],
     requiredField: ["Заполните это поле.","Fill in this field.","Renseignez ce champ.","Rellena este campo.","Preenche este campo."],
     invalidEmail: ["Введите действительный адрес почты.","Enter a valid email address.","Saisissez une adresse e-mail valide.","Introduce una dirección de correo válida.","Introduz um endereço de e-mail válido."],
     minimumLength: ["Введите не менее {n} символов.","Enter at least {n} characters.","Saisissez au moins {n} caractères.","Introduce al menos {n} caracteres.","Introduz pelo menos {n} caracteres."],
@@ -27,7 +30,6 @@
     memberUnblocked: ["Пользователь разблокирован.","User’s access restored.","Accès rétabli.","Acceso restaurado.","Acesso restaurado."],
     accessChangeError: ["Не удалось изменить доступ пользователя.","Could not change the user’s access.","Impossible de modifier l’accès de l’utilisateur.","No se pudo cambiar el acceso del usuario.","Não foi possível alterar o acesso do utilizador."],
     brand: ["Расписание БашГАУ","Bashkir SAU timetable","Emploi du temps de la Bashkir SAU","Horario de la Bashkir SAU","Horário da Bashkir SAU"],
-    university: ["Башкирский ГАУ · Уфа","Bashkir State Agrarian University · Ufa","Université agraire d’État du Bachkortostan · Oufa","Universidad Estatal Agraria de Bashkortostán · Ufá","Universidade Agrária Estatal do Bascortostão · Ufá"],
     chooseLanguage: ["Выберите язык","Choose your language","Choisissez votre langue","Elige tu idioma","Escolhe o teu idioma"],
     account: ["Аккаунт","Account","Compte","Cuenta","Conta"],
     login: ["Вход","Sign in","Connexion","Iniciar sesión","Iniciar sessão"],
@@ -158,6 +160,7 @@
     document.querySelectorAll('[data-i18n]').forEach(element => element.textContent = t(element.dataset.i18n));
     document.querySelectorAll('[data-i18n-alt]').forEach(element => element.alt = t(element.dataset.i18nAlt));
     document.querySelectorAll('[data-i18n-aria]').forEach(element => element.setAttribute('aria-label', t(element.dataset.i18nAria)));
+    document.getElementById('languageTranslation').hidden = language === 'en';
     const toggle = document.getElementById('changeLanguage');
     toggle.textContent = languageNames[languages.indexOf(language)];
     toggle.setAttribute('aria-label', t('chooseLanguage'));

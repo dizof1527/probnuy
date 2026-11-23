@@ -6,11 +6,11 @@
   <meta name="robots" content="noindex">
   <title>Аккаунт · Расписание БашГАУ</title>
   <link rel="icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./account.css?v=2026-11-23.3">
+  <link rel="stylesheet" href="./account.css?v=2026-11-23.4">
   <script defer src="./vendor/supabase-2.119.2.js"></script>
   <script defer src="./supabase-client.js"></script>
-  <script defer src="./account-language.js?v=2026-11-23.3"></script>
-  <script defer src="./account.js?v=2026-11-23.3"></script>
+  <script defer src="./account-language.js?v=2026-11-23.4"></script>
+  <script defer src="./account.js?v=2026-11-23.4"></script>
 </head>
 <body>
   <header class="site-header">
@@ -18,40 +18,55 @@
     <button id="changeLanguage" type="button" class="language-toggle" hidden></button>
   </header>
   <main>
-    <section class="language-panel" id="languagePanel" hidden aria-labelledby="languageTitle">
-      <h1 id="languageTitle" data-i18n="chooseLanguage">Выберите язык</h1>
-      <p lang="en">Choose your language</p>
-      <div class="language-list" aria-labelledby="languageTitle">
-        <button type="button" lang="ru" data-language="ru">Русский <span aria-hidden="true">→</span></button>
-        <button type="button" lang="en" data-language="en">English <span aria-hidden="true">→</span></button>
-        <button type="button" lang="fr" data-language="fr">Français <span aria-hidden="true">→</span></button>
-        <button type="button" lang="es" data-language="es">Español <span aria-hidden="true">→</span></button>
-        <button type="button" lang="pt" data-language="pt">Português <span aria-hidden="true">→</span></button>
+    <section class="portal-card language-panel" id="languagePanel" hidden aria-labelledby="languageTitle">
+      <div class="cover-photo" aria-hidden="true"></div>
+      <div class="portal-body">
+        <h1 id="languageTitle" data-i18n="chooseLanguage">Выберите язык</h1>
+        <p id="languageTranslation" lang="en">Choose your language</p>
+        <div class="language-list" aria-labelledby="languageTitle">
+          <button type="button" lang="ru" data-language="ru">Русский <span aria-hidden="true">→</span></button>
+          <button type="button" lang="en" data-language="en">English <span aria-hidden="true">→</span></button>
+          <button type="button" lang="fr" data-language="fr">Français <span aria-hidden="true">→</span></button>
+          <button type="button" lang="es" data-language="es">Español <span aria-hidden="true">→</span></button>
+          <button type="button" lang="pt" data-language="pt">Português <span aria-hidden="true">→</span></button>
+        </div>
       </div>
     </section>
     <div id="accountContent" hidden>
       <p id="status" role="status" aria-live="polite" hidden></p>
-      <section id="authPanel" class="auth-panel" aria-labelledby="authTitle" hidden>
-        <div class="auth-intro">
-          <p data-i18n="university">Башкирский ГАУ · Уфа</p>
-          <h1 id="authTitle" tabindex="-1"></h1>
-          <p id="authIntro"></p>
-        </div>
-        <div class="auth-body">
+      <section id="authPanel" class="portal-card auth-panel" aria-labelledby="authTitle" hidden>
+        <div class="cover-photo" aria-hidden="true"></div>
+        <div class="portal-body">
+          <div class="auth-intro">
+            <h1 id="authTitle" tabindex="-1"></h1>
+            <p id="authIntro"></p>
+          </div>
           <div class="auth-modes" role="group" aria-label="Аккаунт" data-i18n-aria="account">
             <button type="button" data-auth-mode="login" aria-pressed="true" data-i18n="login">Вход</button>
             <button type="button" data-auth-mode="signup" aria-pressed="false" data-i18n="signup">Регистрация</button>
           </div>
           <form id="authForm">
-            <label id="emailLabel"><span data-i18n="email">Электронная почта</span>
-              <input id="authEmail" name="email" type="email" maxlength="254" autocomplete="email" required>
-            </label>
-            <label id="passwordLabel"><span data-i18n="password">Пароль</span>
-              <input id="authPassword" name="password" type="password" autocomplete="current-password" aria-describedby="passwordHint" required>
-              <small id="passwordHint" data-i18n="passwordHint" hidden>Не менее 8 символов.</small>
-            </label>
-            <fieldset id="signupFields" class="profile-fields signup-fields" disabled hidden></fieldset>
-            <button class="primary" id="authSubmit" type="submit">Войти</button>
+            <ol id="signupProgress" class="signup-progress" data-i18n-aria="signupProgress" hidden>
+              <li id="stepIdentity" tabindex="-1"><span class="step-number" aria-hidden="true">1</span><span data-i18n="signupIdentity">Данные аккаунта</span></li>
+              <li id="stepStudy" tabindex="-1"><span class="step-number" aria-hidden="true">2</span><span data-i18n="signupStudy">Учёба и профиль</span></li>
+            </ol>
+            <fieldset id="credentials">
+              <label id="emailLabel"><span data-i18n="email">Электронная почта</span>
+                <input id="authEmail" name="email" type="email" maxlength="254" autocomplete="email" required>
+              </label>
+              <label id="passwordLabel"><span data-i18n="password">Пароль</span>
+                <input id="authPassword" name="password" type="password" autocomplete="current-password" aria-describedby="passwordHint" required>
+                <small id="passwordHint" data-i18n="passwordHint" hidden>Не менее 8 символов.</small>
+              </label>
+            </fieldset>
+            <div id="signupFields" hidden>
+              <fieldset id="signupIdentity" class="profile-fields" aria-labelledby="stepIdentity"></fieldset>
+              <fieldset id="signupStudy" class="profile-fields" aria-labelledby="stepStudy" hidden disabled></fieldset>
+            </div>
+            <div class="form-actions">
+              <button id="signupBack" type="button" data-i18n="previous" hidden>Назад</button>
+              <button class="primary" id="authSubmit" type="submit">Войти</button>
+            </div>
           </form>
           <button id="recoveryButton" type="button" class="text-button">Забыли пароль?</button>
         </div>
@@ -104,10 +119,10 @@
   </main>
   <template id="profileFields">
     <legend data-i18n="profileFields">Анкета</legend>
-    <p class="wide field-note name-hint" data-i18n="nameHint"></p>
-    <label><span data-i18n="lastName">Фамилия</span><input name="last_name" autocomplete="family-name" maxlength="80" required></label>
-    <label><span data-i18n="firstName">Имя</span><input name="first_name" autocomplete="given-name" maxlength="80" required></label>
-    <label class="wide"><span data-i18n="patronymic">Отчество, если есть</span><input name="patronymic" autocomplete="additional-name" maxlength="80"></label>
+    <p class="wide field-note name-hint" data-i18n="nameHint" data-identity></p>
+    <label data-identity><span data-i18n="lastName">Фамилия</span><input name="last_name" autocomplete="family-name" maxlength="80" required></label>
+    <label data-identity><span data-i18n="firstName">Имя</span><input name="first_name" autocomplete="given-name" maxlength="80" required></label>
+    <label class="wide" data-identity><span data-i18n="patronymic">Отчество, если есть</span><input name="patronymic" autocomplete="additional-name" maxlength="80"></label>
     <label><span data-i18n="course">Курс</span><select name="course" required></select></label>
     <label><span data-i18n="group">Группа</span><select name="group_key" required></select></label>
     <label class="wide"><span data-i18n="subgroup">Подгруппа</span><select name="subgroup" required></select></label>
