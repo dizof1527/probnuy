@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#171a1f">
-<meta name="app-version" content="2026-11-09.1">
+<meta name="app-version" content="2026-11-23.1">
 <meta name="schedule-version" content="2026-10-27">
 <meta name="description" content="Расписание БашГАУ: все группы, подгруппы, актуальные недели и офлайн-доступ.">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -15,6 +15,9 @@
 <link rel="apple-touch-icon" href="./icon.png">
 <link rel="manifest" href="./manifest.webmanifest">
 <title>Расписание БашГАУ</title>
+<script defer data-online-feature src="./vendor/supabase-2.119.2.js"></script>
+<script defer data-online-feature src="./supabase-client.js"></script>
+<script defer data-online-feature src="./schedule-cloud.js"></script>
 <style>
 :root{--ease:cubic-bezier(.22,1,.36,1);--sidebar:228px}
 *{box-sizing:border-box}html{background:var(--bg);color-scheme:dark;scroll-behavior:smooth;scroll-padding-top:24px}body{margin:0;background:var(--bg);color:var(--t);font:14px/1.5 var(--f);min-height:100dvh;transition:background-color .35s,color .35s}button,input,textarea,select{font:inherit;color:inherit}button{cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}button{transition:background-color .25s,border-color .25s,color .25s,transform .35s var(--ease)}button:active{transform:scale(.975)}button:disabled{opacity:.3;cursor:default;transform:none}button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid var(--a);outline-offset:4px}button[aria-pressed=true]{font-weight:700}[hidden]{display:none!important}svg{flex:none}::selection{background:var(--a);color:var(--ao)}
@@ -699,6 +702,11 @@ html[data-motion=off] .card,html[data-motion=off] .detail,html[data-motion=off] 
 @media(prefers-reduced-motion:reduce){.ready-choice{transition:none}.ready-choice:hover{transform:none}}
 [data-motion=off] .ready-choice{transition:none;transform:none}
 
+.cloud-edit{display:grid;gap:10px}
+.cloud-edit label{display:grid;min-width:0;gap:4px;font-size:calc(13px * var(--text-scale));font-weight:600}
+.cloud-edit .input{min-height:44px;width:100%;min-width:0;margin:0}
+.cloud-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+#cloudEditStatus:empty{display:none}
 </style>
 </head>
 <body>
@@ -823,6 +831,10 @@ const groupInfo=key=>({...DATA.infos[key]||{course:1,mode:'Очная'},educatio
 const groupsSorted=()=>Object.keys(DATA.groups).map(key=>({key,label:DATA.labels[key]||key,...groupInfo(key)})).sort((a,b)=>a.course-b.course||a.label.localeCompare(b.label,'ru',{numeric:true}));
 const subject=row=>state.lang==='ru'?DATA.subjects[row[3]]||'':SUBJECT_TRANSLATIONS[state.lang]?.[row[3]]||DATA.subjects[row[3]]||'';
 const teacher=row=>state.lang==='ru'?DATA.teachers[row[5]]||'':TEACHER_TRANSLATIONS[state.lang]?.[row[5]]||DATA.teachers[row[5]]||'';
+for(const [lang,account,edit] of [
+ ['ru','Аккаунт','Редактировать пару'],['en','Account','Edit class'],['es','Cuenta','Editar clase'],
+ ['fr','Compte','Modifier le cours'],['pt','Conta','Editar aula']
+])Object.assign(I18N[lang],{cloudAccount:account,editLesson:edit});
 const ROOM_I18N={
  en:{location:'Room {room}, building {building}',terms:{'Д/О':'Online','онлайн':'Online','Выезд':'Off-site','Кафедра':'Department','Кафедры':'Departments','с/зал':'Gym'}},
  es:{location:'Aula {room}, edificio {building}',terms:{'Д/О':'En línea','онлайн':'En línea','Выезд':'Fuera del campus','Кафедра':'Departamento','Кафедры':'Departamentos','с/зал':'Gimnasio'}},
@@ -906,7 +918,7 @@ function renderCards(animate=false){
   const opened=state.openCard===rowId(row),actual=state.week===realWeek&&row[0]===realDay&&!state.query;
   const live=actual&&minutes>=toMinutes(row[9])&&minutes<toMinutes(row[10]);const past=actual&&minutes>=toMinutes(row[10]);
   const conflict=row[11]?.includes(state.week);
-  return lessonGap(rows,index)+`<article style="--stagger:${Math.min(index,5)*45}ms" class="card ${row[2]?'lec':'prac'} ${live?'live':''} ${past?'past':''}"><button class="card-button" data-action="expand" data-index="${index}" aria-expanded="${opened}"><span class="time-block"><b>${esc(row[9])}</b><small>${esc(row[10])}</small><span class="pair-no">${esc(t('pair',{n:row[1]}))}</span></span><span class="lesson-body"><span class="lesson-top"><span class="lesson-type">${esc(t(row[2]?'lecture':'practice'))}</span><span class="subgroup-label">${esc(row[7]?subgroupName(Number(row[7])):t('allGroups'))}</span>${state.query?`<span class="subgroup-label">${esc(I18N[state.lang].shortDays[row[0]-1])}</span>`:''}${live?`<span class="lesson-live">${esc(t('now'))}</span>`:''}${conflict?`<span class="subgroup-label" title="${esc(t('sourceConflict'))}">⚠ ${esc(t('sourceConflictShort'))}</span>`:''}</span><span class="title">${esc(subject(row))}</span><span class="lesson-meta">${row[4]?`<span>${uiIcon('pin')}${esc(room(row[4]))}</span>`:''}<span>${uiIcon('person')}${esc(teacher(row)||t('noTeacher'))}</span></span></span><span class="card-chevron">${uiIcon('chevronRight')}</span></button>${opened?`<div class="detail"><p>${esc(t('teacher'))}: <b>${esc(teacher(row)||t('noTeacher'))}</b></p><p>${esc(t('weeks'))}: <b>${esc(formatWeek(row))}</b></p>${conflict?`<p>⚠️ ${esc(t('sourceConflict'))}</p>`:''}<label for="noteText">${esc(t('note'))}</label><input id="noteText" data-note-index="${index}" value="${esc(noteValue(row))}" placeholder="${esc(t('notePlaceholder'))}"><div class="lesson-tools"><button data-action="copyLesson" data-index="${index}">${uiIcon('copy')}${esc(t('copyLesson'))}</button></div><button class="report-issue" data-action="reportIssue" data-index="${index}">${uiIcon('flag')}${esc(t('reportIssue'))}</button></div>`:''}</article>`;
+  return lessonGap(rows,index)+`<article style="--stagger:${Math.min(index,5)*45}ms" class="card ${row[2]?'lec':'prac'} ${live?'live':''} ${past?'past':''}"><button class="card-button" data-action="expand" data-index="${index}" aria-expanded="${opened}"><span class="time-block"><b>${esc(row[9])}</b><small>${esc(row[10])}</small><span class="pair-no">${esc(t('pair',{n:row[1]}))}</span></span><span class="lesson-body"><span class="lesson-top"><span class="lesson-type">${esc(t(row[2]?'lecture':'practice'))}</span><span class="subgroup-label">${esc(row[7]?subgroupName(Number(row[7])):t('allGroups'))}</span>${state.query?`<span class="subgroup-label">${esc(I18N[state.lang].shortDays[row[0]-1])}</span>`:''}${live?`<span class="lesson-live">${esc(t('now'))}</span>`:''}${conflict?`<span class="subgroup-label" title="${esc(t('sourceConflict'))}">⚠ ${esc(t('sourceConflictShort'))}</span>`:''}</span><span class="title">${esc(subject(row))}</span><span class="lesson-meta">${row[4]?`<span>${uiIcon('pin')}${esc(room(row[4]))}</span>`:''}<span>${uiIcon('person')}${esc(teacher(row)||t('noTeacher'))}</span></span></span><span class="card-chevron">${uiIcon('chevronRight')}</span></button>${opened?`<div class="detail"><p>${esc(t('teacher'))}: <b>${esc(teacher(row)||t('noTeacher'))}</b></p><p>${esc(t('weeks'))}: <b>${esc(formatWeek(row))}</b></p>${conflict?`<p>⚠️ ${esc(t('sourceConflict'))}</p>`:''}<label for="noteText">${esc(t('note'))}</label><input id="noteText" data-note-index="${index}" value="${esc(noteValue(row))}" placeholder="${esc(t('notePlaceholder'))}"><div class="lesson-tools"><button data-action="copyLesson" data-index="${index}">${uiIcon('copy')}${esc(t('copyLesson'))}</button>${window.bgauScheduleCloud?.isAdmin()?`<button data-action="editLesson" data-index="${index}">${uiIcon('settings')}${esc(t('editLesson'))}</button>`:''}</div><button class="report-issue" data-action="reportIssue" data-index="${index}">${uiIcon('flag')}${esc(t('reportIssue'))}</button></div>`:''}</article>`;
  }).join(''):`<div class="empty"><span class="empty-icon">${uiIcon('schedule')}</span><strong>${esc(t(state.query?'noSearch':'noLessons'))}</strong><span>${esc(t('noLessonsHint'))}</span>${!state.query?`<button class="primary" data-action="nextTeachingDay">${esc(t('nextTeachingDay'))}</button>`:''}<button class="report-issue" data-action="reportIssue">${uiIcon('flag')}${esc(t('reportIssue'))}</button></div>`;
  const cards=$('cards');if(lastCardMarkup!==markup){lastCardMarkup=markup;cards.classList.toggle('is-changing',animate);cards.innerHTML=markup}
  renderDaySummary(rows);syncJumpToCurrent();
@@ -929,10 +941,11 @@ function closeModal(){
  $('modal').classList.add('is-closing');modalCloseTimer=setTimeout(finish,240);
 }
 function renderModal(){if(!state.modal)return;const body=$('modalBody'),title=$('modalTitle');$('modal').classList.toggle('teacher-schedule-modal',state.modal==='teacherSchedule');$('modal').classList.toggle('appearance-modal',['themes','accessibility'].includes(state.modal));$('appearanceEditorFooter')?.remove();
+ if(state.modal==='editLesson'){window.bgauScheduleCloud?.renderEditor();return}
  if(state.modal==='teacherSchedule'){renderTeacherSchedule();return}
  if(state.modal==='freshness'){renderFreshness();return}if(state.modal==='report'){renderReport();return}if(state.modal==='support'){renderSupport();return}if(state.modal==='accessibility'){renderAccessibility();return}if(state.modal==='updates'){renderUpdates();return}
  if(state.modal==='menu'){
- title.textContent=t('menu');body.innerHTML=`<h3>${esc(t('group'))}</h3><button class="menu-item" data-action="groups"><span>${uiIcon('groups')}${esc(DATA.labels[state.group])}</span><small>${esc(t('change'))} ›</small></button><button class="menu-item" data-action="pinGroup" aria-pressed="${groupPinned()}"><span>${uiIcon('star')}${esc(t(groupPinned()?'unpinGroup':'pinGroup'))}</span><small>${esc(t(groupPinned()?'lockOn':'lockOff'))}</small></button><button class="menu-item" data-action="pinSubgroup" aria-pressed="${subgroupSaved()}"><span class="menu-copy">${esc(t(subgroupSaved()?'unpinSubgroup':'pinSubgroup'))}<small>${esc(subgroupName())} · ${esc(DATA.labels[state.group])}</small></span>${uiIcon('bookmark')}</button><h3>${esc(t('preferences'))}</h3><button class="menu-item" data-action="language"><span>${uiIcon('globe')}${esc(t('changeLanguage'))}</span><small>${esc(LANGUAGES[state.lang])} ›</small></button><button class="menu-item" data-action="themes"><span>${uiIcon('settings')}${esc(t('themeSettings'))}</span><small>${esc(t('graphiteTheme'))} ›</small></button><h3>${esc(t('menu'))}</h3>${[['week','weekOverview','week'],['teacherSchedule','forTeachers','teachers'],['teachers','teachers','teachers'],['notes','notes','notes'],['bells','bells','bells'],['freshness','freshnessTitle','verified'],['reportIssue','reportIssue','flag'],['updates','updates','bells'],['share','share','share'],['copy','copy','copy'],['offline','offlineTitle','offline'],['download','download','download'],['support','support','support']].map(([a,k,icon])=>`<button class="menu-item" data-action="${a}"><span>${uiIcon(icon)} ${esc(t(k))}</span><span>›</span></button>`).join('')}<p class="muted">${esc(t('officialNames'))} ${esc(t('offline'))}.</p>`;return;
+ title.textContent=t('menu');body.innerHTML=`${location.protocol==='file:'?'':`<a class="menu-item" href="./account.html"><span>${uiIcon('person')}${esc(t('cloudAccount'))}</span><span aria-hidden="true">›</span></a>`}<h3>${esc(t('group'))}</h3><button class="menu-item" data-action="groups"><span>${uiIcon('groups')}${esc(DATA.labels[state.group])}</span><small>${esc(t('change'))} ›</small></button><button class="menu-item" data-action="pinGroup" aria-pressed="${groupPinned()}"><span>${uiIcon('star')}${esc(t(groupPinned()?'unpinGroup':'pinGroup'))}</span><small>${esc(t(groupPinned()?'lockOn':'lockOff'))}</small></button><button class="menu-item" data-action="pinSubgroup" aria-pressed="${subgroupSaved()}"><span class="menu-copy">${esc(t(subgroupSaved()?'unpinSubgroup':'pinSubgroup'))}<small>${esc(subgroupName())} · ${esc(DATA.labels[state.group])}</small></span>${uiIcon('bookmark')}</button><h3>${esc(t('preferences'))}</h3><button class="menu-item" data-action="language"><span>${uiIcon('globe')}${esc(t('changeLanguage'))}</span><small>${esc(LANGUAGES[state.lang])} ›</small></button><button class="menu-item" data-action="themes"><span>${uiIcon('settings')}${esc(t('themeSettings'))}</span><small>${esc(t('graphiteTheme'))} ›</small></button><h3>${esc(t('menu'))}</h3>${[['week','weekOverview','week'],['teacherSchedule','forTeachers','teachers'],['teachers','teachers','teachers'],['notes','notes','notes'],['bells','bells','bells'],['freshness','freshnessTitle','verified'],['reportIssue','reportIssue','flag'],['updates','updates','bells'],['share','share','share'],['copy','copy','copy'],['offline','offlineTitle','offline'],['download','download','download'],['support','support','support']].map(([a,k,icon])=>`<button class="menu-item" data-action="${a}"><span>${uiIcon(icon)} ${esc(t(k))}</span><span>›</span></button>`).join('')}<p class="muted">${esc(t('officialNames'))} ${esc(t('offline'))}.</p>`;return;
  }
  if(state.modal==='offline'){
  title.textContent=t('offlineTitle');body.innerHTML=`<p class="muted">${esc(t('offlineIntro'))}</p><div class="offline-state" id="offlineModalState"></div><section class="offline-platform"><h3>${esc(t('androidTitle'))}</h3><p>${esc(t('androidHint'))}</p></section><section class="offline-platform"><h3>${esc(t('iphoneTitle'))}</h3><p>${esc(t('iphoneHint'))}</p></section>${installPrompt?`<button class="primary" data-action="install">${esc(t('installApp'))}</button>`:`<section class="offline-platform"><h3>${esc(t(window.matchMedia?.('(display-mode: standalone)').matches||navigator.standalone===true?'installedHere':'notInstalled'))}</h3><p>${esc(t(window.isSecureContext?'installBrowserHint':'secureNeeded'))}</p></section>`}<button class="primary" data-action="download">↓ ${esc(t('download'))}</button><p class="muted">${esc(t('offlineNote'))}</p>`;refreshOfflineHint();return;
@@ -1117,6 +1130,9 @@ async function copyText(text){try{await navigator.clipboard.writeText(text)}catc
 function scheduleText(){const rows=matchingRows(),date=localeDate(dateOf(state.week,state.day));return `${t('app')} · ${DATA.labels[state.group]} · ${t('week',{n:state.week})} · ${date}\n`+(rows.length?rows.map(row=>`${t('pair',{n:row[1]})} ${row[9]}–${row[10]} · ${subject(row)}${row[7]?` · ${row[7]} ${t('sgShort')}`:''} · ${t('room')}: ${room(row[4])}`).join('\n'):t('noLessons'))}
 function offlineSnapshot(){
  const copy=document.documentElement.cloneNode(true);copy.querySelector('body').classList.remove('modal-open','animations-paused');
+ copy.querySelectorAll('script[data-online-feature]').forEach(script=>script.remove());
+ const source=copy.querySelector('script:not([src])');
+ if(source)source.textContent=source.textContent.replace(/^const DATA=.*$/m,()=>`const DATA=${JSON.stringify(DATA).replace(/</g,'\\u003c')};`);
  for(const id of ['modal','onboard'])copy.querySelector('#'+id).hidden=true;
  copy.querySelector('#modal').classList.remove('is-closing');copy.querySelector('#modalBody').innerHTML='';copy.querySelector('#jumpCurrent').hidden=true;copy.querySelector('#appearanceEditorFooter')?.remove();
  for(const id of ['appShell','footer'])copy.querySelector('#'+id).removeAttribute('inert');
@@ -1177,6 +1193,7 @@ document.addEventListener('click',async event=>{const target=event.target.closes
  case 'jumpCurrent':goToday(true);break;
  case 'nextTeachingDay':nextTeachingDay();break;
  case 'copyLesson':{const row=matchingRows()[Number(target.dataset.index)];if(row)await copyText([DATA.labels[state.group],localeDate(dateOf(state.week,row[0])),row[9]+'–'+row[10],subject(row),room(row[4]),teacher(row)].filter(Boolean).join(' · '));break}
+ case 'editLesson':window.bgauScheduleCloud?.openEditor(Number(target.dataset.index));break;
  case 'notifications':await toggleNotifications();break;
  case 'dismissUpdate':state.updateDismissed=true;if(state.changeDate)save('bash_changes_dismissed_v1',state.changeDate);state.newVersion=false;renderUpdateBanner();break;
  case 'reloadVersion':reloadVersion();break;
@@ -1219,7 +1236,7 @@ document.addEventListener('keydown',event=>{
  if(event.key==='Escape'&&overlay===$('modal')){event.preventDefault();closeModal();return}
  if(event.key==='Tab'){const items=[...overlay.querySelectorAll('button:not([disabled]),input,select,textarea,a[href],[tabindex="0"]')].filter(el=>!el.hidden&&el.getClientRects().length);if(!items.length)return;const first=items[0],last=items[items.length-1];if(event.shiftKey&&(document.activeElement===first||!items.includes(document.activeElement))){event.preventDefault();last.focus()}else if(!event.shiftKey&&(document.activeElement===last||!items.includes(document.activeElement))){event.preventDefault();first.focus()}}
 });
-const APP_RELEASE='2026-11-09.1';
+const APP_RELEASE='2026-11-23.1';
 const SCHEDULE_RELEASE='2026-10-27';
 const SUPPORT_LINKS={telegram:'https://t.me/csenchis',max:'https://max.ru/u/f9LHodD0cOLBig0ncSmZu-eTLwPD-Hm-RjLt9f2f7IFpYJJtNziGpqJPshc'};
 const jsonRead=(key,fallback)=>{try{return JSON.parse(read(key))??fallback}catch{return fallback}};

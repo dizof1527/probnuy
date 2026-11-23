@@ -1,9 +1,10 @@
 /* Offline support for GitHub Pages, including repositories in a subdirectory. */
 const ROOT=new URL('./',self.location.href);
 const PREFIX='bashgau:'+ROOT.pathname+':';
-const CACHE=PREFIX+'9857cb636c15';
+const CACHE=PREFIX+'2026-11-23.1';
 const APP=new URL('index.html',ROOT).href;
-const ASSETS=['manifest.webmanifest','icon.png','icon-192.png'].map(path=>new URL(path,ROOT).href);
+const ASSETS=['manifest.webmanifest','icon.png','icon-192.png','account.html','account.js','supabase-client.js',
+ 'schedule-cloud.js','vendor/supabase-2.119.2.js'].map(path=>new URL(path,ROOT).href);
 self.addEventListener('install',event=>event.waitUntil((async()=>{
  const cache=await caches.open(CACHE);
  const response=await fetch(new Request(APP,{cache:'reload'}));
@@ -28,7 +29,7 @@ self.addEventListener('fetch',event=>{
  })());return}
  if(ASSETS.includes(url.href))event.respondWith((async()=>{
   const cache=await caches.open(CACHE);
-  try{const response=await fetch(request);if(response.ok)await cache.put(request,response.clone());return response}
+  try{const response=await fetch(request);if(!response.ok)throw new Error('Asset unavailable');await cache.put(request,response.clone());return response}
   catch{return await cache.match(request)||Response.error()}
  })());
 });
