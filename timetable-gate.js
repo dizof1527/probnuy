@@ -156,6 +156,7 @@
       }
       window.bgauTimetablePayload=data.schedule;
       await loadScript('./timetable.js');
+      cloud.showDailyTraffic(document.querySelector('#appShell .daily-traffic'));
       document.getElementById('timetableGate').hidden=true;
       document.getElementById('appShell').hidden=false;
       document.getElementById('footer').hidden=false;

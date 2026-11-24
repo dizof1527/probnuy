@@ -23,5 +23,24 @@
     },0);
   });
 
-  window.bgauCloud = { client, readRole };
+  function showDailyTraffic(panel) {
+    if (!panel) return;
+    let request = 0;
+    async function refresh() {
+      if (document.hidden) return;
+      const revision = ++request;
+      const {data,error} = await client.rpc('bgau_daily_traffic');
+      if (revision !== request) return;
+      for (const key of ['users','visits']) {
+        panel.querySelector('[data-'+key+']').textContent =
+          !error && Number.isSafeInteger(data?.[key]) ? data[key].toLocaleString(document.documentElement.lang) : '—';
+      }
+    }
+    void refresh();
+    window.addEventListener('bgau-visit-recorded',refresh);
+    document.addEventListener('visibilitychange',refresh);
+    setInterval(refresh,60000);
+  }
+
+  window.bgauCloud = { client, readRole, showDailyTraffic };
 })();

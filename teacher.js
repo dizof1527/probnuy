@@ -7,6 +7,7 @@
     status.textContent = 'Откройте сайт с подключением к интернету.';
     return;
   }
+  window.bgauCloud.showDailyTraffic(status.closest('main').querySelector('.daily-traffic'));
   const firstMonday = Date.UTC(2026, 7, 31);
   const weekLength = 7 * 86400000;
   const dateFormat = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', timeZone: 'UTC' });

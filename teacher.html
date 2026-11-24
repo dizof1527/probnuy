@@ -12,10 +12,10 @@
         document.documentElement.dataset.motion = 'off';
     } catch {}
   </script>
-  <link rel="stylesheet" href="./account.css?v=2026-11-24.9">
+  <link rel="stylesheet" href="./account.css?v=2026-11-24.10">
   <script defer src="./vendor/supabase-2.119.2.js"></script>
   <script defer src="./supabase-client.js"></script>
-  <script defer src="./teacher.js?v=2026-11-24.9"></script>
+  <script defer src="./teacher.js?v=2026-11-24.10"></script>
 </head>
 <body>
   <header class="site-header">
@@ -26,6 +26,7 @@
     <section>
       <h1>Моё расписание</h1>
       <p id="teacherName"></p>
+      <p class="daily-traffic" aria-live="off"><strong data-i18n="trafficToday">Сегодня на сайте</strong> <span><span data-i18n="trafficUsers">Пользователей</span> · <b data-users>…</b></span> <span><span data-i18n="trafficVisits">Посещений</span> · <b data-visits>…</b></span></p>
       <div class="teacher-week">
         <label>Учебная неделя<select id="teacherWeek" disabled></select></label>
         <button id="addLesson" class="primary" type="button" hidden>Добавить пару</button>

@@ -112,6 +112,11 @@ for(const [lang,account,edit] of [
  ['ru','Аккаунт','Редактировать пару'],['en','Account','Edit class'],['es','Cuenta','Editar clase'],
  ['fr','Compte','Modifier le cours'],['pt','Conta','Editar aula']
 ])Object.assign(I18N[lang],{cloudAccount:account,editLesson:edit});
+for(const [lang,[trafficToday,trafficUsers,trafficVisits]] of Object.entries({
+ ru:['Сегодня на сайте','Пользователей','Посещений'],en:['Today on the site','Users','Visits'],
+ es:['Hoy en el sitio','Usuarios','Visitas'],fr:['Aujourd’hui sur le site','Utilisateurs','Visites'],
+ pt:['Hoje no site','Utilizadores','Visitas']
+})) Object.assign(I18N[lang],{trafficToday,trafficUsers,trafficVisits});
 const ROOM_I18N={
  en:{location:'Room {room}, building {building}',terms:{'Д/О':'Online','онлайн':'Online','Выезд':'Off-site','Кафедра':'Department','Кафедры':'Departments','с/зал':'Gym'}},
  es:{location:'Aula {room}, edificio {building}',terms:{'Д/О':'En línea','онлайн':'En línea','Выезд':'Fuera del campus','Кафедра':'Departamento','Кафедры':'Departamentos','с/зал':'Gimnasio'}},
@@ -419,6 +424,7 @@ async function offlineSnapshot(){
  if(DATA.personalGroup)throw new Error('Personal timetable cannot be exported');
  const copy=document.documentElement.cloneNode(true);copy.querySelector('body').classList.remove('modal-open','animations-paused');
  copy.querySelector('#accountShortcut')?.remove();
+ copy.querySelector('.daily-traffic')?.remove();
  copy.querySelectorAll('script[data-online-feature]').forEach(script=>script.remove());
  copy.querySelector('#timetableGate')?.remove();
  let code=copy.querySelector('script:not([src])')?.textContent;
@@ -533,7 +539,7 @@ document.addEventListener('keydown',event=>{
  if(event.key==='Escape'&&overlay===$('modal')){event.preventDefault();closeModal();return}
  if(event.key==='Tab'){const items=[...overlay.querySelectorAll('button:not([disabled]),input,select,textarea,a[href],[tabindex="0"]')].filter(el=>!el.hidden&&el.getClientRects().length);if(!items.length)return;const first=items[0],last=items[items.length-1];if(event.shiftKey&&(document.activeElement===first||!items.includes(document.activeElement))){event.preventDefault();last.focus()}else if(!event.shiftKey&&(document.activeElement===last||!items.includes(document.activeElement))){event.preventDefault();first.focus()}}
 });
-const APP_RELEASE='2026-11-24.9';
+const APP_RELEASE='2026-11-24.10';
 const SCHEDULE_RELEASE='2026-11-24';
 const SUPPORT_LINKS={telegram:'https://t.me/csenchis',max:'https://max.ru/u/f9LHodD0cOLBig0ncSmZu-eTLwPD-Hm-RjLt9f2f7IFpYJJtNziGpqJPshc'};
 const jsonRead=(key,fallback)=>{try{return JSON.parse(read(key))??fallback}catch{return fallback}};
