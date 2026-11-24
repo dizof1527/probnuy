@@ -237,6 +237,8 @@
     el('adminPanel').hidden = true;
     el('profile').hidden = true;
     el('teacherPanel').hidden = true;
+    el('personalPanel').hidden = true;
+    el('personalLinks').replaceChildren();
     el('profileSettings').hidden = true;
     el('profileAvatar').removeAttribute('src');
     el('profileAvatar').hidden=true;
@@ -275,6 +277,7 @@
         if (access === 'ready') { location.replace(new URL('./',location.href).href); return; }
       }
       el('profileSettings').hidden=false;
+      void loadPersonalLinks(request);
       el('avatarForm').hidden=!account.profile;
       if(nextSchedule&&!account.profile)notify('profileRequired');
       el('settingsFields').disabled = true;
@@ -297,6 +300,23 @@
       el('profileRole').textContent = t('roleUnknown');
       notify('roleError', true);
     }
+  }
+
+  async function loadPersonalLinks(request) {
+    const {data,error}=await client.rpc('bgau_personal_timetable_menu');
+    if(error||request!==generation||!data?.length)return;
+    const links=el('personalLinks');
+    for(const entry of data){
+      const item=document.createElement('li');
+      const link=document.createElement('a');
+      const url=new URL('./personal.html',location.href);
+      if(role==='admin')url.searchParams.set('owner',entry.owner_id);
+      link.href=url.href;
+      link.textContent=entry.display_name||t('privateTimetables');
+      item.append(link);
+      links.append(item);
+    }
+    el('personalPanel').hidden=false;
   }
 
   async function loadAccounts() {

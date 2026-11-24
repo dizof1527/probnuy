@@ -53,6 +53,11 @@
       const {data:access,error:accessError}=await client.rpc('bgau_access_status');
       if(accessError)throw accessError;
       if(access!=='ready'){goToAccount(access);return}
+      const {data:personal,error:personalError}=await client.rpc('bgau_personal_timetable_menu');
+      if(!personalError&&Array.isArray(personal)&&personal.some(entry=>entry.owner_id===session.user.id)){
+        location.replace(new URL('./personal.html',location.href).href);
+        return;
+      }
       const {data,error}=await client.rpc('bgau_read_timetable');
       if(error)throw error;
       if(!data?.schedule?.groups)throw new Error('Timetable unavailable');

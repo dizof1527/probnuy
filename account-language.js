@@ -4,6 +4,7 @@
   const languages = ['ru', 'en', 'fr', 'es', 'pt'];
   const languageNames = ['Русский', 'English', 'Français', 'Español', 'Português'];
   const translations = {
+    privateTimetables: ["Личное расписание","Personal timetable","Emploi du temps personnel","Horario personal","Horário pessoal"],
     personalTimetable: ["Моё расписание преподавателя","My teaching timetable","Mon emploi du temps d’enseignant","Mi horario docente","O meu horário docente"],
     signupProgress: ["Шаги регистрации","Registration steps","Étapes de l’inscription","Pasos del registro","Etapas do registo"],
     signupIdentity: ["Данные аккаунта","Account details","Informations du compte","Datos de la cuenta","Dados da conta"],

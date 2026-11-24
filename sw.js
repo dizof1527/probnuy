@@ -1,12 +1,12 @@
 /* Offline support for GitHub Pages, including repositories in a subdirectory. */
 const ROOT=new URL('./',self.location.href);
 const PREFIX='bashgau:'+ROOT.pathname+':';
-const RELEASE='2026-11-24.1';
+const RELEASE='2026-11-24.2';
 const CACHE=PREFIX+RELEASE;
 const APP=new URL('index.html',ROOT).href;
-const ASSETS=['manifest.webmanifest','icon.png','icon-192.png','account.html','account-cover.jpg','teacher.html','supabase-client.js',
+const ASSETS=['manifest.webmanifest','icon.png','icon-192.png','account.html','account-cover.jpg','teacher.html','personal.html','supabase-client.js',
  'timetable-gate.js','timetable.js','schedule-cloud.js','vendor/supabase-2.119.2.js',
- ...['account.js','account-language.js','account.css','teacher.js'].map(path=>path+'?v='+RELEASE)].map(path=>new URL(path,ROOT).href);
+ ...['account.js','account-language.js','account.css','teacher.js','personal.js'].map(path=>path+'?v='+RELEASE)].map(path=>new URL(path,ROOT).href);
 self.addEventListener('install',event=>event.waitUntil((async()=>{
  const cache=await caches.open(CACHE);
  const response=await fetch(new Request(APP,{cache:'reload'}));

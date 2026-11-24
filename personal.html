@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Личное расписание · БашГАУ</title>
+  <link rel="icon" href="./icon-192.png">
+  <link rel="stylesheet" href="./account.css?v=2026-11-24.2">
+  <script defer src="./vendor/supabase-2.119.2.js"></script>
+  <script defer src="./supabase-client.js"></script>
+  <script defer src="./personal.js?v=2026-11-24.2"></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="./"><img src="./icon-192.png" width="36" height="36" alt="">Расписание БашГАУ</a>
+    <a href="./account.html">Аккаунт</a>
+  </header>
+  <main>
+    <section>
+      <h1>Личное расписание</h1>
+      <p id="personalGroup" hidden></p>
+      <div id="personalFilters" class="teacher-week" hidden>
+        <label>Учебная неделя<select id="personalWeek"></select></label>
+        <label>Подгруппа<select id="personalSubgroup"><option value="0">Обе подгруппы</option><option value="1">1-я подгруппа</option><option value="2">2-я подгруппа</option></select></label>
+      </div>
+      <p id="personalStatus" role="status">Проверяем доступ…</p>
+    </section>
+    <div id="personalDays" class="teacher-days"></div>
+  </main>
+</body>
+</html>
