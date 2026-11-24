@@ -89,6 +89,10 @@ const initialLanguage=read('bashgau_lang_v1');
 const initialGroup=window.bgauInitialGroup||read('bash_grp');
 const state={lang:I18N[initialLanguage]?initialLanguage:'ru',group:DATA.groups[initialGroup]?initialGroup:'AIP101',week:currentWeek(),day:Math.min(today(),6),subgroup:DATA.groups[initialGroup]&&initialGroup!==DATA.personalGroup?(+read('aip_sg')||0):0,groupLock:read('bash_glock'),subgroupLock:+read('bash_sg_lock')||0,theme:'graphite',query:'',groupQuery:'',education:'bachelor',mode:'Очная',course:1,openCard:-1,modal:'',languageChosen:!!I18N[initialLanguage]};
 const inPersonalGroup=()=>state.group===DATA.personalGroup;
+const clockLabel=()=>t(inPersonalGroup()?'surgutTime':'ufaTime');
+for(const [lang,label] of Object.entries({
+ ru:'Время Сургута',en:'Surgut time',fr:'Heure de Sourgout',es:'Hora de Surgut',pt:'Hora de Surgut'
+})) I18N[lang].surgutTime=label;
 // The last selected group remains active; pinned groups are quick access shortcuts.
 const localeDate=date=>new Intl.DateTimeFormat(LOCALES[state.lang],{timeZone:'UTC',weekday:'long',day:'numeric',month:'long'}).format(date);
 const modeKey=mode=>({'Очная':'fullTime','Очно-заочная':'blended','Заочная':'partTime','Колледж':'college'})[mode]||'fullTime';
@@ -181,7 +185,7 @@ function renderStatus(){
  $('statusClock').hidden=!!countdown;$('statusClock').textContent=String(c.hour).padStart(2,'0')+':'+String(c.minute).padStart(2,'0');
  $('statusCountdown').textContent=countdown;$('statusCaption').textContent=caption;$('statusSubject').textContent=name;$('statusSubject').hidden=!name;
  $('statusProgress').hidden=!live;$('statusProgressValue').style.width=progress.toFixed(1)+'%';
- $('statusUfa').textContent=t('ufaTime')+' · '+String(c.hour).padStart(2,'0')+':'+String(c.minute).padStart(2,'0');
+ $('statusUfa').textContent=clockLabel()+' · '+String(c.hour).padStart(2,'0')+':'+String(c.minute).padStart(2,'0');
 }
 const clockCountdown=secs=>String(Math.floor(Math.max(0,secs)/3600)).padStart(2,'0')+':'+String(Math.floor(Math.max(0,secs)%3600/60)).padStart(2,'0')+':'+String(Math.max(0,secs)%60).padStart(2,'0');
 let lastCardMarkup='';
@@ -523,7 +527,7 @@ document.addEventListener('keydown',event=>{
  if(event.key==='Escape'&&overlay===$('modal')){event.preventDefault();closeModal();return}
  if(event.key==='Tab'){const items=[...overlay.querySelectorAll('button:not([disabled]),input,select,textarea,a[href],[tabindex="0"]')].filter(el=>!el.hidden&&el.getClientRects().length);if(!items.length)return;const first=items[0],last=items[items.length-1];if(event.shiftKey&&(document.activeElement===first||!items.includes(document.activeElement))){event.preventDefault();last.focus()}else if(!event.shiftKey&&(document.activeElement===last||!items.includes(document.activeElement))){event.preventDefault();first.focus()}}
 });
-const APP_RELEASE='2026-11-24.4';
+const APP_RELEASE='2026-11-24.5';
 const SCHEDULE_RELEASE='2026-10-27';
 const SUPPORT_LINKS={telegram:'https://t.me/csenchis',max:'https://max.ru/u/f9LHodD0cOLBig0ncSmZu-eTLwPD-Hm-RjLt9f2f7IFpYJJtNziGpqJPshc'};
 const jsonRead=(key,fallback)=>{try{return JSON.parse(read(key))??fallback}catch{return fallback}};
@@ -694,7 +698,7 @@ function renderFreshnessShortcut(){
 }
 function renderFreshness(){
  $('modalTitle').textContent=t('freshnessTitle');
- const checked=state.publicationCheckedAt?new Intl.DateTimeFormat(LOCALES[state.lang],{dateStyle:'medium',timeStyle:'short',timeZone:UFATZ}).format(new Date(state.publicationCheckedAt))+' · '+t('ufaTime'):t('notYetChecked');
+ const checked=state.publicationCheckedAt?new Intl.DateTimeFormat(LOCALES[state.lang],{dateStyle:'medium',timeStyle:'short',timeZone:UFATZ}).format(new Date(state.publicationCheckedAt))+' · '+clockLabel():t('notYetChecked');
  $('modalBody').innerHTML=`<div class="freshness-hero" data-freshness="${publicationStatus()}">${uiIcon('verified')}<div><strong role="status">${esc(t(publicationStatusKey()))}</strong><p>${esc(t('dataAsOf',{date:releaseDate()}))}</p></div></div><dl class="freshness-facts">${[['freshnessSourceLabel',t('freshnessSource')],['freshnessPublished',releaseDate()],['freshnessLastCheck',checked],['freshnessAppVersion',APP_RELEASE]].map(([key,value])=>`<div><dt>${esc(t(key))}</dt><dd>${esc(value)}</dd></div>`).join('')}</dl><p class="appearance-note">${esc(t('freshnessExplanation'))}</p>${location.protocol==='file:'?`<p class="appearance-note">${esc(t('checkFileHint'))}</p>`:`<button class="primary freshness-check" data-action="${publicationStatus()==='new'?'reloadVersion':'checkFreshness'}" ${versionChecking||navigator.onLine===false?'disabled':''}>${uiIcon('refresh')}<span>${esc(t(publicationStatus()==='new'?'newVersionReady':versionChecking?'checkChecking':'checkNow'))}</span></button>`}<button class="report-issue" data-action="reportIssue">${uiIcon('flag')}${esc(t('reportIssue'))}</button>`;
 }
 
