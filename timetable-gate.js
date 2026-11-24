@@ -107,6 +107,18 @@
     document.getElementById('timetableGate').hidden = true;
   }
 
+  async function showOwnAvatar(link, userId) {
+    try {
+      const {data,error}=await client.rpc('bgau_get_avatar');
+      if(error || !data || activeUser!==userId || !link?.isConnected) return;
+      const image=new Image();
+      image.alt='';
+      image.src='data:image/jpeg;base64,'+data.replace(/\s/gu,'');
+      await image.decode();
+      if(activeUser===userId) link.append(image);
+    } catch { /* The profile icon is available while the photo loads. */ }
+  }
+
   async function bootstrap() {
     try {
       const {data:{session},error:sessionError}=await client.auth.getSession();
@@ -116,6 +128,7 @@
         activeUser=session.user.id;
         teacherMode=true;
         await mountTeacherWorkspace();
+        void showOwnAvatar(document.querySelector('#teacherWorkspace .account-shortcut'),session.user.id);
         return;
       }
       const {data:access,error:accessError}=await client.rpc('bgau_access_status');
@@ -130,6 +143,7 @@
       if(error)throw error;
       if(!data?.schedule?.groups)throw new Error('Timetable unavailable');
       activeUser=session.user.id;
+      void showOwnAvatar(document.getElementById('accountShortcut'),session.user.id);
       useProfilePreferences(session.user,data.preferences,data.schedule.groups);
       if (entry) {
         const {data:sheet,error:sheetError}=await client.rpc('bgau_read_personal_timetable',{p_owner_id:entry.owner_id});
