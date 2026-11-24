@@ -267,7 +267,7 @@
       showProfile(account);
       if(account.banned){notify('banNotice',true);return}
       if(role==='teacher'){
-        if(nextSchedule){location.replace(new URL('./teacher.html',location.href).href);return}
+        if(nextSchedule){location.replace(new URL('./',location.href).href);return}
         el('teacherPanel').hidden=false;
       }
       if(nextSchedule&&(account.profile||role==='admin')) {

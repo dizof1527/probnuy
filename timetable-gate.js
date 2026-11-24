@@ -10,6 +10,7 @@
   let activeUser = null;
   let personalLoaded = false;
   let personalOwner = null;
+  let teacherMode = false;
 
   function goToAccount(reason) {
     const url = new URL('./account.html',location.href);
@@ -70,13 +71,51 @@
     for (const id of ['appShell','footer','modal','onboard']) document.getElementById(id).hidden = true;
   }
 
+  function concealWorkspace() {
+    concealPersonal();
+    const teacher = document.getElementById('teacherWorkspace');
+    if (teacher) teacher.hidden = true;
+  }
+
+  async function mountTeacherWorkspace() {
+    const response = await fetch('./teacher.html');
+    if (!response.ok) throw new Error('Teacher workspace unavailable');
+    const page = new DOMParser().parseFromString(await response.text(), 'text/html');
+    const header = page.querySelector('.site-header');
+    const main = page.querySelector('main');
+    const stylesheet = page.querySelector('link[rel=stylesheet]');
+    const script = [...page.scripts].find(element => element.getAttribute('src')?.startsWith('./teacher.js'));
+    if (!header || !main || !stylesheet || !script) throw new Error('Teacher workspace incomplete');
+    const style = document.createElement('link');
+    style.rel = 'stylesheet';
+    style.href = stylesheet.getAttribute('href');
+    await new Promise((resolve,reject) => {
+      style.onload = resolve;
+      style.onerror = reject;
+      document.head.append(style);
+    });
+    if (!activeUser) return;
+    const workspace = document.createElement('div');
+    workspace.id = 'teacherWorkspace';
+    workspace.hidden = true;
+    workspace.append(header,main);
+    document.body.append(workspace);
+    await loadScript(script.getAttribute('src'));
+    if (!activeUser) return;
+    document.title = page.title;
+    workspace.hidden = false;
+    document.getElementById('timetableGate').hidden = true;
+  }
+
   async function bootstrap() {
     try {
       const {data:{session},error:sessionError}=await client.auth.getSession();
       if(sessionError)throw sessionError;
       if(!session){goToAccount();return}
       if(await cloud.readRole(session.user.id)==='teacher'){
-        location.replace(new URL('./teacher.html',location.href).href);
+        activeUser=session.user.id;
+        teacherMode=true;
+        await mountTeacherWorkspace();
         return;
       }
       const {data:access,error:accessError}=await client.rpc('bgau_access_status');
@@ -116,6 +155,11 @@
   async function checkAccess() {
     if(!activeUser||document.hidden||!navigator.onLine)return;
     try {
+      const role=await cloud.readRole(activeUser);
+      if(teacherMode!==(role==='teacher')){
+        concealWorkspace();location.reload();return;
+      }
+      if(teacherMode)return;
       const {data,error}=await client.rpc('bgau_access_status');
       if(!error&&data!=='ready'){concealPersonal();goToAccount(data);return}
       if(personalLoaded){
@@ -124,15 +168,14 @@
           concealPersonal();location.replace('./');return;
         }
       }
-      if(await cloud.readRole(activeUser)==='teacher')location.replace(new URL('./teacher.html',location.href).href);
     } catch { /* The displayed timetable was already delivered to an authorized account. */ }
   }
 
   client.auth.onAuthStateChange((event,session)=>{
-    if(activeUser&&(event==='SIGNED_OUT'||(session&&session.user.id!==activeUser))){activeUser=null;concealPersonal();goToAccount()}
+    if(activeUser&&(event==='SIGNED_OUT'||(session&&session.user.id!==activeUser))){activeUser=null;concealWorkspace();goToAccount()}
   });
-  window.addEventListener('pagehide',concealPersonal);
-  window.addEventListener('pageshow',event=>{if(event.persisted&&personalLoaded)location.reload()});
+  window.addEventListener('pagehide',concealWorkspace);
+  window.addEventListener('pageshow',event=>{if(event.persisted&&(personalLoaded||teacherMode))location.reload()});
   setInterval(()=>void checkAccess(),60000);
   document.addEventListener('visibilitychange',()=>void checkAccess());
   void bootstrap();
