@@ -320,3 +320,21 @@ html[data-motion=off] dialog, html[data-motion=off] dialog::backdrop { animation
 .site-header .account-shortcut img { position:absolute;inset:0;width:100%;height:100%;object-fit:cover }
 
 .daily-traffic{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 16px;margin:0 0 16px;font-size:.875rem}.daily-traffic b{font-variant-numeric:tabular-nums}.daily-traffic>span{white-space:nowrap}
+
+@media (prefers-reduced-motion:no-preference) {
+  html:not([data-motion=off]) #credentials { animation:page-arrive 220ms ease-out; }
+  html:not([data-motion=off]) :where(button,a[href],select,input,textarea) {
+    transition:background-color 160ms ease,border-color 160ms ease,box-shadow 160ms ease,color 160ms ease,scale 140ms ease;
+  }
+  html:not([data-motion=off]) :where(button:enabled,a[href]):active { scale:.98; }
+}
+@keyframes page-arrive { from { opacity:.55; transform:translateY(6px) } to { opacity:1; transform:none } }
+
+@media(prefers-reduced-motion:no-preference){
+  html:not([data-motion=off]) :is(.site-header,.teacher-days .user,.daily-traffic,#accounts fieldset,#accounts img,.avatar-frame img){
+    animation:section-enter 240ms cubic-bezier(.22,.78,.22,1);
+  }
+  html:not([data-motion=off]) :is(input:not([type=range]),textarea,select):focus-visible{
+    box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 20%,transparent);
+  }
+}

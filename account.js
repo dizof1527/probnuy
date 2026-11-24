@@ -13,6 +13,9 @@
     status.textContent = key ? t(key) : '';
     status.dataset.error = String(error);
     status.hidden = !key;
+    if(key && !document.hidden && document.documentElement.dataset.motion!=='off' && !matchMedia('(prefers-reduced-motion: reduce)').matches){
+      status.animate?.([{opacity:.5,translate:'0 3px'},{opacity:1,translate:'0 0'}],{duration:180,easing:'ease-out'});
+    }
   }
 
   function showLanguagePicker(show) {

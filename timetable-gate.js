@@ -97,6 +97,7 @@
     if (!activeUser) return;
     const workspace = document.createElement('div');
     workspace.id = 'teacherWorkspace';
+    try { if(JSON.parse(localStorage.getItem('bash_appearance_v1'))?.motion===false)document.documentElement.dataset.motion='off'; } catch {}
     workspace.hidden = true;
     workspace.append(header,main);
     document.body.append(workspace);

@@ -411,6 +411,34 @@ function selectGroup(key){
  state.openCard=-1;state.groupQuery='';state.query='';$('lessonSearch').value='';
  if(state.modal)closeModal();render(true);
 }
+function toggleLesson(index){
+ const row=matchingRows()[index];
+ if(!row)return;
+ const cards=$('cards');
+ const measure=!reducedMotion() && typeof Element.prototype.animate==='function';
+ const previous=cards.querySelector('[aria-expanded=true]')?.dataset.index;
+ const changed=new Set([previous,String(index)].filter(value=>value!==undefined));
+ const heights=new Map();
+ if(measure)for(const key of changed){
+   const card=cards.querySelector('.card-button[data-index="'+key+'"]')?.closest('.card');
+   if(card)heights.set(key,card.getBoundingClientRect().height);
+ }
+ state.openCard=state.openCard===rowId(row)?-1:rowId(row);
+ renderCards();
+ for(const [key,from] of heights){
+   const card=cards.querySelector('.card-button[data-index="'+key+'"]')?.closest('.card');
+   if(!card)continue;
+   const to=card.getBoundingClientRect().height;
+   if(Math.abs(to-from)>1)card.animate([{height:from+'px',overflow:'clip'},{height:to+'px',overflow:'clip'}],
+     {id:'lesson-size',duration:260,easing:'cubic-bezier(.22,.75,.25,1)'});
+ }
+ cards.querySelector('.card-button[data-index="'+index+'"]')?.focus({preventScroll:true});
+}
+function revealChoices(){
+ const list=$('groupChoices');
+ if(!reducedMotion() && list?.animate)list.animate([{opacity:.4,translate:'0 4px'},{opacity:1,translate:'0 0'}],
+   {duration:190,easing:'ease-out'});
+}
 function setDay(day){state.day=+day;state.openCard=-1;render(true)}
 function setWeek(week){state.week=Math.max(1,Math.min(MAX_WEEK,+week));state.openCard=-1;render(true)}
 function setSubgroup(subgroup){
@@ -471,9 +499,9 @@ document.addEventListener('click',async event=>{const target=event.target.closes
  if(inPersonalGroup()&&['reportIssue','copy','copyLesson','copyDiagnostic','share','notes'].includes(action))return;
  switch(action){
  case 'menu':openModal('menu');break;case 'close':closeModal();break;case 'groups':{const info=groupInfo(state.group);state.education=info.education;state.mode=info.mode;state.course=info.course;state.groupQuery='';openModal('groups');break}
- case 'education':if(!['bachelor','master'].includes(value))break;state.education=value;state.course=1;renderGroupChoices();$('educationTabs').querySelector(`[data-value="${value}"]`)?.focus({preventScroll:true});break;
- case 'mode':state.mode=value;state.course=groupsSorted().find(g=>g.mode===value&&g.education===state.education)?.course||1;renderGroupChoices();break;
- case 'course':state.course=+value;renderGroupChoices();break;
+ case 'education':if(!['bachelor','master'].includes(value))break;state.education=value;state.course=1;renderGroupChoices();revealChoices();$('educationTabs').querySelector(`[data-value="${value}"]`)?.focus({preventScroll:true});break;
+ case 'mode':state.mode=value;state.course=groupsSorted().find(g=>g.mode===value&&g.education===state.education)?.course||1;renderGroupChoices();revealChoices();break;
+ case 'course':state.course=+value;renderGroupChoices();revealChoices();break;
  case 'selectGroup':selectGroup(value);break;
  case 'setLanguage':selectLanguage(value);break;case 'language':openModal('language');break;
  case 'readyThemes':toggleReadyThemes();break;case 'applyReadyTheme':applyReadyTheme(value);break;case 'themes':openModal('themes');break;case 'resetAppearance':resetAppearance();break;
@@ -507,7 +535,7 @@ document.addEventListener('click',async event=>{const target=event.target.closes
  case 'today':goToday();break;
  case 'search':$('searchBox').hidden=!$('searchBox').hidden;if(!$('searchBox').hidden)$('lessonSearch').focus();break;
  case 'clearSearch':state.query='';$('lessonSearch').value='';renderCards(true);$('summaryTitle').textContent=localeDate(dateOf(state.week,state.day));renderFilterSummary();break;
- case 'expand':{const rows=matchingRows();const row=rows[+target.dataset.index];state.openCard=row&&state.openCard!==rowId(row)?rowId(row):-1;renderCards();$('cards').querySelector(`[data-index="${target.dataset.index}"]`)?.focus({preventScroll:true});break}
+ case 'expand':toggleLesson(Number(target.dataset.index));break;
  case 'share':{const text=scheduleText();if(navigator.share)try{await navigator.share({title:t('app'),text})}catch{}else await copyText(text);break}
  case 'copy':await copyText(scheduleText());break;case 'copyText':await copyText(value);break;
  case 'teacherSchedule':openTeacherSchedule();break;
@@ -539,7 +567,7 @@ document.addEventListener('keydown',event=>{
  if(event.key==='Escape'&&overlay===$('modal')){event.preventDefault();closeModal();return}
  if(event.key==='Tab'){const items=[...overlay.querySelectorAll('button:not([disabled]),input,select,textarea,a[href],[tabindex="0"]')].filter(el=>!el.hidden&&el.getClientRects().length);if(!items.length)return;const first=items[0],last=items[items.length-1];if(event.shiftKey&&(document.activeElement===first||!items.includes(document.activeElement))){event.preventDefault();last.focus()}else if(!event.shiftKey&&(document.activeElement===last||!items.includes(document.activeElement))){event.preventDefault();first.focus()}}
 });
-const APP_RELEASE='2026-11-24.10';
+const APP_RELEASE='2026-11-24.11';
 const SCHEDULE_RELEASE='2026-11-24';
 const SUPPORT_LINKS={telegram:'https://t.me/csenchis',max:'https://max.ru/u/f9LHodD0cOLBig0ncSmZu-eTLwPD-Hm-RjLt9f2f7IFpYJJtNziGpqJPshc'};
 const jsonRead=(key,fallback)=>{try{return JSON.parse(read(key))??fallback}catch{return fallback}};
