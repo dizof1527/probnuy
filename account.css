@@ -123,8 +123,19 @@ button:not(:disabled):hover { border-color: var(--accent); }
 }
 .language-list button:hover { background: var(--tint); }
 .language-list button span { color: var(--accent); }
-.auth-intro { margin-bottom: 22px; }
-.auth-intro p { max-width: 36ch; }
+.auth-panel { min-height: 420px; grid-template-columns: minmax(260px, .72fr) minmax(0, 1.28fr); }
+.auth-intro {
+  padding: clamp(23px, 4vw, 48px);
+  background: radial-gradient(ellipse at 0 100%, #254356, transparent 65%), #142b39;
+  color: #f4f8f8;
+}
+.auth-intro h1 { font: 740 clamp(30px, 4vw, 46px)/1.05 system-ui, sans-serif; letter-spacing: -.06em; }
+.auth-intro p { max-width: 33ch; margin-top: 15px; color: #d0e0e6; }
+.auth-intro .signup-progress { grid-template-columns: 1fr; margin-top: 26px; }
+.auth-intro .signup-progress li { padding: 9px 10px; border-color: #50707d; color: #d8e5e9; }
+.auth-intro .signup-progress li[aria-current=step] { background: #d3ece7; border-color: #d3ece7; color: #15302e; }
+.auth-intro .step-number { background: #375466; color: #f4f8f8; }
+.auth-intro [aria-current=step] .step-number { background: #22554c; color: #fff; }
 .auth-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border-bottom: 1px solid var(--border); }
 .auth-modes button {
   width: 100%;
@@ -200,8 +211,41 @@ fieldset.profile-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .lesson-editor { max-width: min(480px, calc(100% - 24px)); width: 100%; max-height: 90dvh; padding: 22px; color: var(--ink); background: var(--surface); border: 1px solid var(--border); border-radius: 16px; }
 .lesson-editor::backdrop { background: #101b1699; }
 .lesson-editor .lesson-time { display: grid; gap: 8px; grid-template-columns: repeat(2,minmax(0,1fr)); }
-.avatar-form { padding-top: 16px; margin-top: 20px; border-top: 1px solid var(--border); }
-.avatar-form p { margin: 0; }
+.settings-grid { display: grid; gap: 20px; grid-template-columns: minmax(180px, .7fr) minmax(0, 1.7fr); align-items: start; margin-top: 18px; }
+.settings-grid:has(.avatar-card[hidden]) { grid-template-columns: 1fr; }
+#profileForm { margin: 0; padding: 17px; border: 1px solid var(--border); border-radius: 14px; background: var(--field); }
+.profile-settings h2 { font-size: clamp(22px, 3vw, 31px); }
+.avatar-card { display: grid; justify-items: start; gap: 11px; padding: 17px; background: var(--tint); border-radius: 14px; }
+.avatar-card p { font-size: .82rem; margin: 0; }
+.avatar-frame { width: 94px; aspect-ratio: 1; border-radius: 50%; display: grid; place-items: center; background: var(--field); border: 1px solid var(--border); }
+.avatar-frame span { font-size: 32px; color: var(--accent); }
+.avatar-frame .avatar { width: 100%; height: 100%; }
+.avatar-pick { position: relative; cursor: pointer; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--field); }
+.avatar-pick:focus-within { outline: 2px solid var(--accent); outline-offset: 3px; }
+.avatar-pick input { position: absolute; width: 1px; height: 1px; min-height: 0; padding: 0; opacity: 0; }
+.avatar-crop { width: min(560px, calc(100% - 24px)); max-height: 92dvh; padding: clamp(16px, 4vw, 24px); border: 1px solid var(--border); border-radius: 18px; color: var(--ink); background: var(--surface); }
+.avatar-crop::backdrop { background: #081018a8; }
+@media (prefers-reduced-motion: no-preference) {
+  dialog[open] {
+    transform-origin: center;
+    animation: crop-unfold 360ms cubic-bezier(.22,.78,.22,1);
+  }
+  dialog[open]::backdrop { animation: crop-backdrop 300ms ease-out both; }
+}
+@keyframes crop-unfold {
+  from { transform: scale(.93); clip-path: ellipse(18% 18%); opacity: .2; }
+  to { transform: scale(1); clip-path: ellipse(75% 75%); opacity: 1; }
+}
+@keyframes crop-backdrop {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.crop-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .9fr); align-items: center; gap: 18px; margin-block: 17px; }
+#cropPreview { width: 100%; max-width: 256px; aspect-ratio: 1; border-radius: 50%; background: var(--tint); border: 2px solid var(--border); touch-action: none; cursor: grab; justify-self: center; }
+#cropPreview:active { cursor: grabbing; }
+.crop-controls { display: grid; gap: 6px; }
+.crop-controls input { accent-color: var(--accent); min-height: 28px; padding: 0; }
+.crop-actions { justify-content: flex-end; }
 .avatar { display: block; width: 60px; height: 60px; object-fit: cover; border-radius: 50%; background: var(--field); }
 .user .avatar { width: 42px; height: 42px; }
 .overline { font-size: .875rem; }
@@ -218,9 +262,55 @@ fieldset.profile-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .cover-photo { min-height: 108px; background-position: center 68%; }
   .cover-photo::after { inset: 7px; border-radius: 11px; }
   .portal-body { padding: 18px; }
-  .auth-intro { margin-bottom: 13px; }
+  .auth-intro .signup-progress { grid-template-columns: repeat(2,minmax(0,1fr)); margin-top: 15px; }
+  .settings-grid { grid-template-columns: minmax(0,1fr); gap: 12px; }
+}
+@media (max-width: 480px) {
+  .crop-grid { grid-template-columns: minmax(0,1fr); gap: 8px; }
+  #cropPreview { max-width: min(195px,33dvh); }
 }
 @media (max-width: 334px) {
   fieldset.profile-fields { grid-template-columns: minmax(0, 1fr); }
   #accountSearch { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-motion=off]) :is(main > section, #accountContent > section, .teacher-days > section, #signupIdentity, #signupStudy) {
+    animation: section-enter 240ms cubic-bezier(.2,.7,.25,1);
+  }
+  html:not([data-motion=off]) :is(button, .avatar-pick, input, select) {
+    transition: background-color 160ms ease, border-color 160ms ease, scale 140ms ease;
+  }
+  html:not([data-motion=off]) :is(button:enabled, .avatar-pick):active { scale: .98; }
+}
+@keyframes section-enter {
+  from { opacity: .35; translate: 0 5px; }
+  to { opacity: 1; translate: 0 0; }
+}
+html[data-motion=off] dialog, html[data-motion=off] dialog::backdrop { animation: none; }
+
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-motion=off]) :is(#accounts > .user, #topMembers > li, #personalLinks > li, #profileAvatar, #status:not(:empty)) {
+    animation: section-enter 220ms cubic-bezier(.22,.75,.25,1) backwards;
+  }
+  html:not([data-motion=off]) :is(#accounts, #topMembers) > :nth-child(2) { animation-delay: 20ms; }
+  html:not([data-motion=off]) :is(#accounts, #topMembers) > :nth-child(n+3) { animation-delay: 40ms; }
+  html:not([data-motion=off]) .step-number {
+    transition: background-color 220ms ease, color 220ms ease, scale 220ms ease;
+  }
+  html:not([data-motion=off]) [aria-current=step] .step-number { scale: 1.08; }
+  html:not([data-motion=off]) .language-list button span { transition: translate 180ms ease-out; }
+  @media (hover: hover) {
+    html:not([data-motion=off]) .language-list button:hover span { translate: 4px 0; }
+  }
+  @supports (transition-behavior: allow-discrete) {
+    html:not([data-motion=off]) dialog {
+      transition: opacity 160ms ease, scale 160ms ease, display 160ms allow-discrete, overlay 160ms allow-discrete;
+    }
+    html:not([data-motion=off]) dialog:not([open]) { opacity: 0; scale: .97; pointer-events: none; }
+    html:not([data-motion=off]) dialog::backdrop {
+      transition: opacity 160ms ease, display 160ms allow-discrete, overlay 160ms allow-discrete;
+    }
+    html:not([data-motion=off]) dialog:not([open])::backdrop { opacity: 0; pointer-events: none; }
+  }
 }

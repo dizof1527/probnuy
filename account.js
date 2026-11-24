@@ -242,7 +242,8 @@
     el('profileSettings').hidden = true;
     el('profileAvatar').removeAttribute('src');
     el('profileAvatar').hidden=true;
-    el('avatarFile').value='';
+    el('avatarPlaceholder').hidden=false;
+    closeCrop();
     if (!actor) {
       el('authPanel').hidden = false;
       if (event === 'SIGNED_OUT') setMode('login');
@@ -537,57 +538,118 @@
       if (src) image.src = src;
       else image.removeAttribute('src');
       image.hidden = el('removeAvatar').hidden = !src;
+      el('avatarPlaceholder').hidden = Boolean(src);
     } catch {
       if (request === generation) notify('avatarLoadError', true);
     }
   }
 
-  async function compressAvatar(file) {
-    if (!file || !['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 8 * 1024 * 1024) {
-      throw new Error('avatarFileError');
+  const cropDialog = el('avatarCrop'), preview = el('cropPreview'), photoInput = el('avatarFile');
+  const zoom = el('cropZoom'), positionX = el('cropX'), positionY = el('cropY');
+  let photo = null, cropRevision = 0, drag = null;
+
+  function closeCrop() {
+    ++cropRevision;
+    if (cropDialog.open) cropDialog.close();
+    photo?.close();
+    photo = drag = null;
+    preview.getContext('2d').clearRect(0, 0, preview.width, preview.height);
+    photoInput.value = '';
+  }
+
+  function cropGeometry() {
+    const size = preview.width;
+    const scale = size / Math.min(photo.width, photo.height) * Number(zoom.value) / 100;
+    const width = photo.width * scale, height = photo.height * scale;
+    return {width,height,overflowX:(width-size)/2,overflowY:(height-size)/2};
+  }
+
+  function renderCrop() {
+    if (!photo) return;
+    const {width,height,overflowX,overflowY} = cropGeometry();
+    positionX.disabled = overflowX < .01;
+    positionY.disabled = overflowY < .01;
+    const context = preview.getContext('2d', {alpha:false});
+    context.fillStyle = '#fff';
+    context.fillRect(0, 0, preview.width, preview.height);
+    context.drawImage(photo, overflowX*(Number(positionX.value)/100-1), overflowY*(Number(positionY.value)/100-1), width, height);
+  }
+
+  function resetCrop() {
+    zoom.value = '100';
+    positionX.value = positionY.value = '0';
+    renderCrop();
+  }
+
+  async function choosePhoto() {
+    const file = photoInput.files[0];
+    if (!file || !actor || el('avatarForm').hidden) return;
+    const revision = ++cropRevision;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 8 * 1024 * 1024) {
+      photoInput.value = '';
+      notify('avatarFileError',true);
+      return;
     }
-    const bitmap = await createImageBitmap(file).catch(() => { throw new Error('avatarDecodeError'); });
     try {
-      const size = Math.min(bitmap.width, bitmap.height);
-      const canvas = document.createElement('canvas');
-      canvas.width = canvas.height = Math.min(size, 256);
-      const context = canvas.getContext('2d', { alpha: false });
-      context.fillStyle = '#fff';
-      context.fillRect(0, 0, canvas.width, canvas.height);
-      context.drawImage(bitmap, (bitmap.width - size) / 2, (bitmap.height - size) / 2, size, size,
-        0, 0, canvas.width, canvas.height);
-      return canvas.toDataURL('image/jpeg', 0.82).split(',')[1];
-    } finally {
-      bitmap.close();
+      const bitmap = await createImageBitmap(file);
+      if (revision !== cropRevision) { bitmap.close(); return; }
+      photo?.close();
+      photo = bitmap;
+      el('cropStatus').hidden = true;
+      resetCrop();
+      if (!cropDialog.open) cropDialog.showModal();
+    } catch {
+      if (revision !== cropRevision) return;
+      closeCrop();
+      notify('avatarDecodeError',true);
     }
   }
 
+  photoInput.addEventListener('change', () => void choosePhoto());
+  for (const control of [zoom,positionX,positionY]) control.addEventListener('input',renderCrop);
+  el('cropReset').addEventListener('click',resetCrop);
+  el('cropCancel').addEventListener('click',closeCrop);
+  cropDialog.addEventListener('cancel',event=>{event.preventDefault();if(!el('uploadAvatar').disabled)closeCrop()});
+  preview.addEventListener('pointerdown',event=>{
+    if(!photo || !event.isPrimary || event.button!==0 || el('uploadAvatar').disabled)return;
+    preview.setPointerCapture(event.pointerId);
+    drag={id:event.pointerId,x:event.clientX,y:event.clientY,panX:Number(positionX.value),panY:Number(positionY.value)};
+  });
+  preview.addEventListener('pointermove',event=>{
+    if(!photo || drag?.id!==event.pointerId)return;
+    const {overflowX,overflowY}=cropGeometry();
+    const ratio=preview.width/preview.clientWidth;
+    const clamp=n=>String(Math.max(-100,Math.min(100,Math.round(n))));
+    if(overflowX>.01)positionX.value=clamp(drag.panX+(event.clientX-drag.x)*ratio/overflowX*100);
+    if(overflowY>.01)positionY.value=clamp(drag.panY+(event.clientY-drag.y)*ratio/overflowY*100);
+    renderCrop();
+  });
+  preview.addEventListener('lostpointercapture',()=>{drag=null});
+
   async function saveAvatar(remove) {
     const upload = el('uploadAvatar'), removeButton = el('removeAvatar');
-    if (!actor || el('profileSettings').hidden || el('avatarForm').hidden || upload.disabled) return;
+    if (!actor || el('profileSettings').hidden || el('avatarForm').hidden || upload.disabled || (!remove&&!photo)) return;
     const request = generation;
-    upload.disabled = removeButton.disabled = true;
+    upload.disabled = removeButton.disabled = el('cropCancel').disabled = photoInput.disabled = true;
     try {
-      let image = null;
-      if (!remove) {
-        try { image = await compressAvatar(el('avatarFile').files[0]); }
-        catch (error) {
-          if (request === generation) notify(error.message === 'avatarFileError' ? 'avatarFileError' : 'avatarDecodeError', true);
-          return;
-        }
-      }
+      const image = remove ? null : preview.toDataURL('image/jpeg',0.82).split(',')[1];
       if (request !== generation) return;
       const { error } = await client.rpc('bgau_set_avatar', { p_jpeg: image });
       if (error) throw error;
       if (request !== generation) return;
-      el('avatarFile').value = '';
+      closeCrop();
       notify(remove ? 'avatarRemoved' : 'avatarSaved');
       await loadOwnAvatar(request);
       if (role === 'admin' && request === generation) await loadAccounts();
     } catch {
-      if (request === generation) notify('avatarSaveError', true);
+      if (request === generation) {
+        if(cropDialog.open){
+          el('cropStatus').textContent=t('avatarSaveError');
+          el('cropStatus').hidden=false;
+        }else notify('avatarSaveError',true);
+      }
     } finally {
-      upload.disabled = removeButton.disabled = false;
+      upload.disabled = removeButton.disabled = el('cropCancel').disabled = photoInput.disabled = false;
     }
   }
 
@@ -687,7 +749,7 @@
       if (request === generation) button.disabled = false;
     }
   });
-  el('avatarForm').addEventListener('submit', event => { event.preventDefault(); void saveAvatar(false); });
+  el('uploadAvatar').addEventListener('click', () => void saveAvatar(false));
   el('removeAvatar').addEventListener('click', () => void saveAvatar(true));
   el('accountSearch').addEventListener('submit', event => {
     event.preventDefault();

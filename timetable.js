@@ -210,7 +210,12 @@ function openModal(kind){
  if(wasHidden)returnFocus=document.activeElement;
  if(['themes','accessibility'].includes(kind)&&!['themes','accessibility'].includes(state.modal))state.appearanceAtOpen={...state.appearance};
  state.modal=kind;$('modal').hidden=false;$('modal').classList.remove('is-closing');renderModal();$('modalBody').scrollTop=0;syncOverlays();
- if(!reducedMotion()&&$('modalBody').animate)$('modalBody').animate([{opacity:0,transform:'translateY(8px)'},{opacity:1,transform:'translateY(0)'}],{duration:300,easing:'cubic-bezier(.16,1,.3,1)'});
+ if(!wasHidden && !reducedMotion() && $('modalBody').animate){
+  const body=$('modalBody');
+  body.getAnimations().filter(animation=>animation.id==='panel-content').forEach(animation=>animation.cancel());
+  body.animate([{opacity:.4,transform:'translateY(5px)'},{opacity:1,transform:'none'}],
+   {id:'panel-content',duration:210,easing:'cubic-bezier(.22,.78,.22,1)'});
+ }
  $('modalTitle').focus({preventScroll:true});
 }
 function closeModal(){
@@ -527,7 +532,7 @@ document.addEventListener('keydown',event=>{
  if(event.key==='Escape'&&overlay===$('modal')){event.preventDefault();closeModal();return}
  if(event.key==='Tab'){const items=[...overlay.querySelectorAll('button:not([disabled]),input,select,textarea,a[href],[tabindex="0"]')].filter(el=>!el.hidden&&el.getClientRects().length);if(!items.length)return;const first=items[0],last=items[items.length-1];if(event.shiftKey&&(document.activeElement===first||!items.includes(document.activeElement))){event.preventDefault();last.focus()}else if(!event.shiftKey&&(document.activeElement===last||!items.includes(document.activeElement))){event.preventDefault();first.focus()}}
 });
-const APP_RELEASE='2026-11-24.5';
+const APP_RELEASE='2026-11-24.6';
 const SCHEDULE_RELEASE='2026-10-27';
 const SUPPORT_LINKS={telegram:'https://t.me/csenchis',max:'https://max.ru/u/f9LHodD0cOLBig0ncSmZu-eTLwPD-Hm-RjLt9f2f7IFpYJJtNziGpqJPshc'};
 const jsonRead=(key,fallback)=>{try{return JSON.parse(read(key))??fallback}catch{return fallback}};

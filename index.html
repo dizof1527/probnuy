@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#171a1f">
-<meta name="app-version" content="2026-11-24.5">
+<meta name="app-version" content="2026-11-24.6">
 <meta name="schedule-version" content="2026-10-27">
 <meta name="description" content="Расписание БашГАУ: все группы, подгруппы, актуальные недели и офлайн-доступ.">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -717,6 +717,55 @@ html[data-motion=off] .card,html[data-motion=off] .detail,html[data-motion=off] 
 .personal-view [data-action="notes"],
 .personal-view label[for="noteText"],
 .personal-view #noteText { display:none !important }
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-motion=off]) .overlay:not(.is-closing) .panel {
+    animation: panel-unfold 340ms cubic-bezier(.22,.78,.22,1);
+  }
+  html:not([data-motion=off]) .cards.is-changing > .card {
+    animation-duration: 300ms;
+    animation-delay: min(var(--stagger,0ms),70ms);
+  }
+  html:not([data-motion=off]) :is(.icon,.menu-item,.choice,.nav-item,.day-nav button,.pill) {
+    transition: background-color 160ms ease, border-color 160ms ease, scale 140ms ease;
+  }
+  html:not([data-motion=off]) :is(.icon,.menu-item,.choice,.nav-item,.day-nav button,.pill):active { scale: .98; }
+}
+@keyframes panel-unfold {
+  from { opacity: .25; scale: .94; clip-path: ellipse(22% 22%); }
+  to { opacity: 1; scale: 1; clip-path: ellipse(75% 75%); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-motion=off]) :is(#searchBox,#updateBanner,#weekGrid):not([hidden]) {
+    animation: detail-enter 220ms var(--ease);
+  }
+  html:not([data-motion=off]) #dayNav { position: relative; }
+  html:not([data-motion=off]) #dayNav:has(> button.on)::after {
+    content: '';
+    position: absolute;
+    width: 18px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--a);
+    bottom: 2px;
+    left: calc((100% + 8px) / 6 * (var(--active-day,0) + .5) - 4px);
+    transform: translateX(-50%);
+    transition: left 300ms cubic-bezier(.22,.8,.24,1);
+    pointer-events: none;
+  }
+  #dayNav:has(> :nth-child(2).on) { --active-day: 1; }
+  #dayNav:has(> :nth-child(3).on) { --active-day: 2; }
+  #dayNav:has(> :nth-child(4).on) { --active-day: 3; }
+  #dayNav:has(> :nth-child(5).on) { --active-day: 4; }
+  #dayNav:has(> :nth-child(6).on) { --active-day: 5; }
+  html:not([data-motion=off]) :is(.week-slot,.teacher-pick,#footer button,.quick-group,.subgroups button,.weekbar button,.primary) {
+    transition: background-color 160ms ease, border-color 160ms ease, scale 140ms ease;
+  }
+  html:not([data-motion=off]) :is(.week-slot,.teacher-pick,#footer button,.quick-group,.subgroups button,.weekbar button,.primary):active { scale: .98; }
+}
+@media (min-width:761px) and (prefers-reduced-motion:no-preference) {
+  #modal.is-closing .panel { animation: panel-fold 200ms ease-in both; }
+}
+@keyframes panel-fold { to { opacity: 0; scale: .96; } }
 </style>
 </head>
 <body>

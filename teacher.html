@@ -6,10 +6,16 @@
   <meta name="robots" content="noindex">
   <title>Моё расписание · БашГАУ</title>
   <link rel="icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./account.css?v=2026-11-24.5">
+  <script>
+    try {
+      if (JSON.parse(localStorage.getItem('bash_appearance_v1'))?.motion === false)
+        document.documentElement.dataset.motion = 'off';
+    } catch {}
+  </script>
+  <link rel="stylesheet" href="./account.css?v=2026-11-24.6">
   <script defer src="./vendor/supabase-2.119.2.js"></script>
   <script defer src="./supabase-client.js"></script>
-  <script defer src="./teacher.js?v=2026-11-24.5"></script>
+  <script defer src="./teacher.js?v=2026-11-24.6"></script>
 </head>
 <body>
   <header class="site-header">

@@ -6,11 +6,17 @@
   <meta name="robots" content="noindex">
   <title>Аккаунт · Расписание БашГАУ</title>
   <link rel="icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./account.css?v=2026-11-24.5">
+  <script>
+    try {
+      if (JSON.parse(localStorage.getItem('bash_appearance_v1'))?.motion === false)
+        document.documentElement.dataset.motion = 'off';
+    } catch {}
+  </script>
+  <link rel="stylesheet" href="./account.css?v=2026-11-24.6">
   <script defer src="./vendor/supabase-2.119.2.js"></script>
   <script defer src="./supabase-client.js"></script>
-  <script defer src="./account-language.js?v=2026-11-24.5"></script>
-  <script defer src="./account.js?v=2026-11-24.5"></script>
+  <script defer src="./account-language.js?v=2026-11-24.6"></script>
+  <script defer src="./account.js?v=2026-11-24.6"></script>
 </head>
 <body>
   <header class="site-header">
@@ -35,21 +41,20 @@
     <div id="accountContent" hidden>
       <p id="status" role="status" aria-live="polite" hidden></p>
       <section id="authPanel" class="portal-card auth-panel" aria-labelledby="authTitle" hidden>
-        <div class="cover-photo" aria-hidden="true"></div>
+        <div class="auth-intro">
+          <h1 id="authTitle" tabindex="-1"></h1>
+          <p id="authIntro"></p>
+          <ol id="signupProgress" class="signup-progress" data-i18n-aria="signupProgress" hidden>
+            <li id="stepIdentity" tabindex="-1"><span class="step-number" aria-hidden="true">1</span><span data-i18n="signupIdentity">Данные аккаунта</span></li>
+            <li id="stepStudy" tabindex="-1"><span class="step-number" aria-hidden="true">2</span><span data-i18n="signupStudy">Учёба и профиль</span></li>
+          </ol>
+        </div>
         <div class="portal-body">
-          <div class="auth-intro">
-            <h1 id="authTitle" tabindex="-1"></h1>
-            <p id="authIntro"></p>
-          </div>
           <div class="auth-modes" role="group" aria-label="Аккаунт" data-i18n-aria="account">
             <button type="button" data-auth-mode="login" aria-pressed="true" data-i18n="login">Вход</button>
             <button type="button" data-auth-mode="signup" aria-pressed="false" data-i18n="signup">Регистрация</button>
           </div>
           <form id="authForm">
-            <ol id="signupProgress" class="signup-progress" data-i18n-aria="signupProgress" hidden>
-              <li id="stepIdentity" tabindex="-1"><span class="step-number" aria-hidden="true">1</span><span data-i18n="signupIdentity">Данные аккаунта</span></li>
-              <li id="stepStudy" tabindex="-1"><span class="step-number" aria-hidden="true">2</span><span data-i18n="signupStudy">Учёба и профиль</span></li>
-            </ol>
             <fieldset id="credentials">
               <label id="emailLabel"><span data-i18n="email">Электронная почта</span>
                 <input id="authEmail" name="email" type="email" maxlength="254" autocomplete="email" required>
@@ -84,23 +89,28 @@
         <h2 data-i18n="privateTimetables">Личное расписание</h2>
         <ul id="personalLinks"></ul>
       </section>
-      <section id="profileSettings" hidden>
+      <section id="profileSettings" class="profile-settings" hidden>
         <h2 data-i18n="settings">Настройки профиля</h2>
         <p id="ownNickname"></p>
-        <form id="profileForm">
-          <fieldset id="settingsFields" class="profile-fields"></fieldset>
-          <button class="primary" id="profileSave" type="submit" data-i18n="saveProfile">Сохранить профиль</button>
-        </form>
-        <form id="avatarForm" class="avatar-form" hidden>
-          <h3 data-i18n="avatar">Аватар</h3>
-          <p id="avatarRules" data-i18n="avatarRules"></p>
-          <img id="profileAvatar" class="avatar" alt="Ваш аватар" data-i18n-alt="ownAvatar" hidden>
-          <label><span data-i18n="avatarFile">Выберите изображение</span><input type="file" id="avatarFile" accept="image/jpeg,image/png,image/webp" aria-describedby="avatarRules"></label>
-          <div class="buttons">
-            <button id="uploadAvatar" type="submit" data-i18n="uploadAvatar">Загрузить аватар</button>
+        <div class="settings-grid">
+          <aside id="avatarForm" class="avatar-card" hidden>
+            <h3 data-i18n="avatar">Аватар</h3>
+            <div class="avatar-frame">
+              <span id="avatarPlaceholder" aria-hidden="true">◎</span>
+              <img id="profileAvatar" class="avatar" alt="Ваш аватар" data-i18n-alt="ownAvatar" hidden>
+            </div>
+            <label class="avatar-pick">
+              <span data-i18n="avatarFile">Выберите изображение</span>
+              <input type="file" id="avatarFile" accept="image/jpeg,image/png,image/webp" aria-describedby="avatarRules">
+            </label>
             <button id="removeAvatar" type="button" data-i18n="removeAvatar" hidden>Убрать аватар</button>
-          </div>
-        </form>
+            <p id="avatarRules" data-i18n="avatarRules"></p>
+          </aside>
+          <form id="profileForm">
+            <fieldset id="settingsFields" class="profile-fields"></fieldset>
+            <button class="primary" id="profileSave" type="submit" data-i18n="saveProfile">Сохранить профиль</button>
+          </form>
+        </div>
       </section>
       <section id="adminPanel" hidden>
         <h2 data-i18n="adminPanel">Управление пользователями</h2>
@@ -124,6 +134,24 @@
     </div>
     <noscript>Для входа включите JavaScript. Enable JavaScript to sign in.</noscript>
   </main>
+  <dialog id="avatarCrop" class="avatar-crop" aria-labelledby="cropTitle">
+    <h2 id="cropTitle" data-i18n="cropTitle">Обрезать фото</h2>
+    <p data-i18n="cropHint">Перетащите фото или используйте ползунки. Сохранится область внутри круга.</p>
+    <div class="crop-grid">
+      <canvas id="cropPreview" width="256" height="256" role="img" data-i18n-aria="cropPreview"></canvas>
+      <div class="crop-controls">
+        <label><span data-i18n="cropZoom">Масштаб</span><input id="cropZoom" type="range" min="100" max="300" value="100"></label>
+        <label><span data-i18n="cropX">По горизонтали</span><input id="cropX" type="range" min="-100" max="100" value="0"></label>
+        <label><span data-i18n="cropY">По вертикали</span><input id="cropY" type="range" min="-100" max="100" value="0"></label>
+        <button id="cropReset" type="button" data-i18n="cropReset">Сбросить</button>
+      </div>
+    </div>
+    <p id="cropStatus" role="status" hidden></p>
+    <div class="buttons crop-actions">
+      <button id="cropCancel" type="button" data-i18n="cropCancel">Отмена</button>
+      <button id="uploadAvatar" class="primary" type="button" data-i18n="cropSave">Сохранить аватар</button>
+    </div>
+  </dialog>
   <template id="profileFields">
     <legend data-i18n="profileFields">Анкета</legend>
     <p class="wide field-note name-hint" data-i18n="nameHint" data-identity></p>

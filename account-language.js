@@ -4,6 +4,15 @@
   const languages = ['ru', 'en', 'fr', 'es', 'pt'];
   const languageNames = ['Русский', 'English', 'Français', 'Español', 'Português'];
   const translations = {
+    cropTitle: ["Обрезать фото","Crop photo","Recadrer la photo","Recortar foto","Recortar foto"],
+    cropHint: ["Перетащите фото или используйте ползунки. Круг показывает, как будет выглядеть аватар.","Drag the photo or use the sliders. The circle shows how your avatar will look.","Déplacez la photo ou utilisez les curseurs. Le cercle montre le rendu de l’avatar.","Arrastra la foto o usa los controles. El círculo muestra cómo quedará el avatar.","Arrasta a foto ou usa os controlos. O círculo mostra como ficará o avatar."],
+    cropPreview: ["Предпросмотр аватара","Avatar preview","Aperçu de l’avatar","Vista previa del avatar","Pré-visualização do avatar"],
+    cropZoom: ["Масштаб","Zoom","Zoom","Zoom","Zoom"],
+    cropX: ["По горизонтали","Horizontal position","Position horizontale","Posición horizontal","Posição horizontal"],
+    cropY: ["По вертикали","Vertical position","Position verticale","Posición vertical","Posição vertical"],
+    cropReset: ["Сбросить","Reset","Réinitialiser","Restablecer","Repor"],
+    cropCancel: ["Отмена","Cancel","Annuler","Cancelar","Cancelar"],
+    cropSave: ["Сохранить аватар","Save avatar","Enregistrer l’avatar","Guardar avatar","Guardar avatar"],
     privateTimetables: ["Личное расписание","Personal timetable","Emploi du temps personnel","Horario personal","Horário pessoal"],
     personalTimetable: ["Моё расписание преподавателя","My teaching timetable","Mon emploi du temps d’enseignant","Mi horario docente","O meu horário docente"],
     signupProgress: ["Шаги регистрации","Registration steps","Étapes de l’inscription","Pasos del registro","Etapas do registo"],
