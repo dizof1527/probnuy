@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Моё расписание · БашГАУ</title>
+  <link rel="icon" href="./icon-192.png">
+  <link rel="stylesheet" href="./account.css?v=2026-11-24.1">
+  <script defer src="./vendor/supabase-2.119.2.js"></script>
+  <script defer src="./supabase-client.js"></script>
+  <script defer src="./teacher.js?v=2026-11-24.1"></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="./teacher.html"><img src="./icon-192.png" width="36" height="36" alt="">Расписание БашГАУ</a>
+    <a href="./account.html">Аккаунт</a>
+  </header>
+  <main>
+    <section>
+      <h1>Моё расписание</h1>
+      <p id="teacherName"></p>
+      <div class="teacher-week">
+        <label>Учебная неделя<select id="teacherWeek" disabled></select></label>
+        <button id="addLesson" class="primary" type="button" hidden>Добавить пару</button>
+      </div>
+      <p id="teacherStatus" role="status">Загружаем расписание…</p>
+    </section>
+    <div id="teacherDays" class="teacher-days"></div>
+    <dialog id="lessonDialog" class="lesson-editor" aria-labelledby="lessonTitle">
+      <h2 id="lessonTitle"></h2>
+      <form id="lessonForm">
+        <label id="lessonOfferingLabel">Предмет и группа<select id="lessonOffering"></select></label>
+        <label>День недели<select name="day" id="lessonDay" required></select></label>
+        <div class="lesson-time">
+          <label>Номер пары<input name="slot" type="number" min="1" max="6" required></label>
+          <label>Аудитория<input name="room" maxlength="120"></label>
+          <label>Начало<input name="starts_at" type="time" required></label>
+          <label>Конец<input name="ends_at" type="time" required></label>
+        </div>
+        <p id="lessonStatus" role="status"></p>
+        <div class="buttons">
+          <button class="primary" type="submit">Сохранить</button>
+          <button id="closeLesson" type="button">Закрыть</button>
+        </div>
+      </form>
+    </dialog>
+  </main>
+</body>
+</html>

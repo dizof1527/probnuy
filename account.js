@@ -236,6 +236,7 @@
     el('paging').hidden = true;
     el('adminPanel').hidden = true;
     el('profile').hidden = true;
+    el('teacherPanel').hidden = true;
     el('profileSettings').hidden = true;
     el('profileAvatar').removeAttribute('src');
     el('profileAvatar').hidden=true;
@@ -263,6 +264,10 @@
       signedInProfile = account;
       showProfile(account);
       if(account.banned){notify('banNotice',true);return}
+      if(role==='teacher'){
+        if(nextSchedule){location.replace(new URL('./teacher.html',location.href).href);return}
+        el('teacherPanel').hidden=false;
+      }
       if(nextSchedule&&(account.profile||role==='admin')) {
         const { data: access, error: accessError } = await client.rpc('bgau_access_status');
         if (request !== generation) return;
@@ -376,6 +381,13 @@
       }
     });
     actions.append(change);
+    if(account.role==='teacher'){
+      const assignments=document.createElement('button');
+      assignments.type='button';
+      assignments.textContent='Предметы преподавателя';
+      assignments.onclick=()=>void editTeacherAssignment(item,account.user_id);
+      actions.append(assignments);
+    }
     const ban=document.createElement('button');
     ban.type='button';ban.textContent=t(account.banned?'unblock':'block');
     ban.addEventListener('click',async()=>{
@@ -394,6 +406,84 @@
     });
     actions.append(ban);
     return item;
+  }
+
+  async function editTeacherAssignment(item, userId) {
+    if(item.querySelector('.teacher-assignment')){
+      item.querySelector('.teacher-assignment').remove();
+      return;
+    }
+    const form=document.createElement('form');
+    form.className='teacher-assignment';
+    const message=document.createElement('p');
+    message.setAttribute('role','status');
+    message.textContent='Загружаем преподавателей…';
+    form.append(message);
+    item.append(form);
+    try{
+      const {data,error}=await client.rpc('bgau_teacher_options',{p_user_id:userId});
+      if(error)throw error;
+      if(!form.isConnected)return;
+      const label=document.createElement('label');
+      label.textContent='Имя преподавателя в расписании';
+      const roster=document.createElement('select');
+      roster.required=true;
+      roster.append(new Option('Выберите преподавателя',''));
+      const teachers=Object.keys(data.courses).map(Number).filter(id=>data.teachers[id]);
+      teachers.sort((a,b)=>data.teachers[a].localeCompare(data.teachers[b],'ru'));
+      teachers.forEach(id=>roster.add(new Option(data.teachers[id],String(id))));
+      roster.value=data.assignment?.teacher_id ?? '';
+      label.append(roster);
+      const subjects=document.createElement('fieldset');
+      const buttons=document.createElement('div');
+      buttons.className='buttons';
+      const save=document.createElement('button');
+      save.type='submit';
+      save.textContent='Сохранить предметы';
+      const clear=document.createElement('button');
+      clear.type='button';
+      clear.textContent='Снять назначение';
+      clear.hidden=!data.assignment;
+      buttons.append(save,clear);
+      form.prepend(label,subjects);
+      form.append(buttons);
+      message.textContent='';
+
+      function showSubjects(selected=[]) {
+        const legend=document.createElement('legend');
+        legend.textContent='Предметы, доступные для редактирования';
+        subjects.replaceChildren(legend);
+        for(const id of data.courses[roster.value]||[]){
+          const choice=document.createElement('label');
+          const box=document.createElement('input');
+          box.type='checkbox';
+          box.value=String(id);
+          box.checked=selected.includes(id);
+          choice.append(box,data.subjects[id]);
+          subjects.append(choice);
+        }
+      }
+      showSubjects(data.assignment?.subject_ids);
+      roster.onchange=()=>showSubjects();
+      async function submit(remove){
+        if(save.disabled)return;
+        const ids=[...subjects.querySelectorAll('input:checked')].map(box=>Number(box.value));
+        if(!remove&&!ids.length){message.textContent='Выберите хотя бы один предмет.';return}
+        save.disabled=clear.disabled=true;
+        try{
+          const {error}=await client.rpc('bgau_set_teacher_assignment',{
+            p_user_id:userId,p_teacher_id:remove?null:Number(roster.value),p_subject_ids:remove?[]:ids
+          });
+          if(error)throw error;
+          if(remove){roster.value='';showSubjects()}
+          clear.hidden=remove;
+          message.textContent=remove?'Назначение снято.':'Предметы сохранены.';
+        }catch{message.textContent='Не удалось сохранить назначение.'}
+        finally{save.disabled=clear.disabled=false}
+      }
+      form.onsubmit=event=>{event.preventDefault();void submit(false)};
+      clear.onclick=()=>void submit(true);
+    }catch{message.textContent='Не удалось загрузить предметы преподавателей.'}
   }
 
   async function renderTop() {

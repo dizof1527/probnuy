@@ -189,6 +189,17 @@ fieldset.profile-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .profile-head > div, .user > div { min-width: 0; overflow-wrap: anywhere; }
 .user { padding: 11px 0; border-top: 1px solid var(--border); }
 .user p { font-size: .875rem; margin: 2px 0; }
+.teacher-assignment { flex-basis: 100%; padding: 14px; border: 1px solid var(--border); border-radius: 10px; }
+.teacher-assignment fieldset { min-width: 0; border: 0; padding: 0; }
+.teacher-assignment fieldset label { display: flex; align-items: center; min-height: 38px; gap: 8px; }
+.teacher-assignment input[type=checkbox] { width: 18px; min-height: 18px; }
+.teacher-week { display: flex; align-items: end; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 14px 0; }
+.teacher-week label { min-width: min(200px, 100%); }
+.teacher-days { display: grid; gap: 12px; }
+.teacher-days section { margin: 0; box-shadow: none; }
+.lesson-editor { max-width: min(480px, calc(100% - 24px)); width: 100%; max-height: 90dvh; padding: 22px; color: var(--ink); background: var(--surface); border: 1px solid var(--border); border-radius: 16px; }
+.lesson-editor::backdrop { background: #101b1699; }
+.lesson-editor .lesson-time { display: grid; gap: 8px; grid-template-columns: repeat(2,minmax(0,1fr)); }
 .avatar-form { padding-top: 16px; margin-top: 20px; border-top: 1px solid var(--border); }
 .avatar-form p { margin: 0; }
 .avatar { display: block; width: 60px; height: 60px; object-fit: cover; border-radius: 50%; background: var(--field); }

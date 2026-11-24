@@ -7,7 +7,8 @@
   const sources = new Map();
   const keysByRow = new WeakMap();
   const cacheKey = 'bgau_schedule_edits_v1:' + SCHEDULE_RELEASE;
-  const editFields = 'group_key,source_key,week,day,slot,kind,subject_id,teacher_id,room,subgroup,starts_at,ends_at';
+  const editFields = 'group_key,source_key,week,day,slot,kind,subject_id,teacher_id,room,subgroup,starts_at,ends_at,cancelled';
+  const isAddition = key => typeof key === 'string' && /^teacher-added:[0-9a-f-]{36}$/u.test(key);
   let edits = new Map(), latestSignature = '[]', editor = null, canEdit = false;
   let refreshCounter = 0, roleCounter = 0, saving = false, lastSync = 0;
 
@@ -27,7 +28,9 @@
     if (!edit || typeof edit !== 'object') return false;
     const base = sources.get(edit.group_key)?.get(edit.source_key);
     const inRange = (value, min, max) => Number.isInteger(value) && value >= min && value <= max;
-    return !!base && base[8].includes(edit.week) && inRange(edit.day, 1, 6) && inRange(edit.slot, 1, 6)
+    const knownLesson = base?.[8].includes(edit.week)
+      || (sources.has(edit.group_key) && isAddition(edit.source_key) && inRange(edit.week, 1, MAX_WEEK));
+    return knownLesson && inRange(edit.day, 1, 6) && inRange(edit.slot, 1, 6)
       && inRange(edit.kind, 0, 1) && inRange(edit.subject_id, 0, DATA.subjects.length - 1)
       && inRange(edit.teacher_id, 0, DATA.teachers.length - 1) && inRange(edit.subgroup, 0, 2)
       && typeof edit.room === 'string' && edit.room.length <= 120
@@ -49,6 +52,12 @@
       groupChanges.get(edit.source_key).set(edit.week, edit);
     }
     DATA.groups = { ...baseGroups };
+    function editedRow(edit) {
+      const row = [edit.day, edit.slot, edit.kind, edit.subject_id, edit.room, edit.teacher_id,
+        String(edit.week), edit.subgroup, [edit.week], edit.starts_at, edit.ends_at];
+      keysByRow.set(row, edit.source_key);
+      return row;
+    }
     for (const [group, groupChanges] of changes) {
       DATA.groups[group] = baseGroups[group].flatMap(row => {
         const key = keysByRow.get(row), rowChanges = groupChanges.get(key);
@@ -61,12 +70,15 @@
           result.push(unchanged);
         }
         for (const edit of rowChanges.values()) {
-          result.push([edit.day, edit.slot, edit.kind, edit.subject_id, edit.room, edit.teacher_id,
-            String(edit.week), edit.subgroup, [edit.week], edit.starts_at, edit.ends_at]);
+          if (!edit.cancelled) result.push(editedRow(edit));
         }
         result.forEach(item => keysByRow.set(item, key));
         return result;
       });
+      for (const [key, weeks] of groupChanges) {
+        if (!isAddition(key)) continue;
+        for (const edit of weeks.values()) if (!edit.cancelled) DATA.groups[group].push(editedRow(edit));
+      }
     }
     teacherDirectoryCache.clear();
     if (state.modal === 'teacherSchedule' && document.activeElement?.id !== 'teacherTimetableSearch') renderTeacherSchedule();
@@ -140,7 +152,7 @@
         <p id="cloudEditStatus" role="status" aria-live="polite"></p>
         <div class="row">
           <button class="primary" type="submit">Сохранить на эту неделю</button>
-          ${currentEdit?'<button class="pill" id="undoCloudEdit" type="button">Вернуть исходную пару</button>':''}
+          ${currentEdit?'<button class="pill" id="undoCloudEdit" type="button">'+(isAddition(sourceKey)?'Удалить добавленную пару':'Вернуть исходную пару')+'</button>':''}
         </div>
       </form>`;
     $('cloudEditForm').addEventListener('submit', event => { event.preventDefault(); void submitEdit(event.currentTarget); });
@@ -178,7 +190,7 @@
       save(cacheKey, JSON.stringify(values));
       if (state.modal === 'editLesson') closeModal();
       if (state.group === group && state.week === week) {
-        state.day = undo ? sources.get(group).get(sourceKey)[0] : payload.day;
+        state.day = undo ? (sources.get(group).get(sourceKey)?.[0] ?? editor.row[0]) : payload.day;
         state.query = '';
         $('lessonSearch').value = '';
         state.openCard = -1;
@@ -186,7 +198,7 @@
       const previous = latestSignature;
       applyEdits(values);
       if (latestSignature === previous) render();
-      toast(undo ? 'Исходная пара восстановлена' : 'Пара обновлена');
+      toast(undo ? (isAddition(sourceKey) ? 'Пара удалена' : 'Исходная пара восстановлена') : 'Пара обновлена');
     } catch {
       status.textContent = 'Не удалось сохранить. Проверьте интернет и права аккаунта.';
     } finally {

@@ -46,6 +46,10 @@
       const {data:{session},error:sessionError}=await client.auth.getSession();
       if(sessionError)throw sessionError;
       if(!session){goToAccount();return}
+      if(await cloud.readRole(session.user.id)==='teacher'){
+        location.replace(new URL('./teacher.html',location.href).href);
+        return;
+      }
       const {data:access,error:accessError}=await client.rpc('bgau_access_status');
       if(accessError)throw accessError;
       if(access!=='ready'){goToAccount(access);return}
@@ -69,7 +73,8 @@
     if(!activeUser||document.hidden||!navigator.onLine)return;
     try {
       const {data,error}=await client.rpc('bgau_access_status');
-      if(!error&&data!=='ready')goToAccount(data);
+      if(!error&&data!=='ready'){goToAccount(data);return}
+      if(await cloud.readRole(activeUser)==='teacher')location.replace(new URL('./teacher.html',location.href).href);
     } catch { /* The displayed timetable was already delivered to an authorized account. */ }
   }
 
