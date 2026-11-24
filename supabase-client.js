@@ -13,5 +13,15 @@
     return data?.role || 'student';
   }
 
+  let visitTimer;
+  client.auth.onAuthStateChange((event, session) => {
+    if (!['INITIAL_SESSION','SIGNED_IN','SIGNED_OUT'].includes(event)) return;
+    clearTimeout(visitTimer);
+    if (session) visitTimer=setTimeout(async () => {
+      const {error}=await client.rpc('bgau_record_site_visit');
+      if (!error) window.dispatchEvent(new Event('bgau-visit-recorded'));
+    },0);
+  });
+
   window.bgauCloud = { client, readRole };
 })();

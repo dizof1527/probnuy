@@ -110,12 +110,13 @@
   async function showOwnAvatar(link, userId) {
     try {
       const {data,error}=await client.rpc('bgau_get_avatar');
-      if(error || !data || activeUser!==userId || !link?.isConnected) return;
+      if(error || activeUser!==userId || !link?.isConnected) return;
+      if(!data){link.querySelector("img")?.remove();return}
       const image=new Image();
       image.alt='';
       image.src='data:image/jpeg;base64,'+data.replace(/\s/gu,'');
       await image.decode();
-      if(activeUser===userId) link.append(image);
+      if(activeUser===userId){link.querySelector("img")?.remove();link.append(image)}
     } catch { /* The profile icon is available while the photo loads. */ }
   }
 
@@ -134,11 +135,9 @@
       const {data:access,error:accessError}=await client.rpc('bgau_access_status');
       if(accessError)throw accessError;
       if(access!=='ready'){goToAccount(access);return}
-      const requested = new URLSearchParams(location.search).get('personal');
       const {data:personal}=await client.rpc('bgau_personal_timetable_menu');
       const entries = Array.isArray(personal) ? personal : [];
-      const entry = entries.find(item => item.owner_id === requested)
-        || entries.find(item => item.owner_id === session.user.id) || entries[0];
+      const entry = entries.find(item => item.owner_id === session.user.id);
       const {data,error}=await client.rpc('bgau_read_timetable');
       if(error)throw error;
       if(!data?.schedule?.groups)throw new Error('Timetable unavailable');
@@ -152,7 +151,7 @@
           const key=addPersonalGroup(data.schedule,sheet);
           personalLoaded=true;
           personalOwner=entry.owner_id;
-          if (entry.owner_id===session.user.id || entry.owner_id===requested) window.bgauInitialGroup=key;
+          window.bgauInitialGroup=key;
         }
       }
       window.bgauTimetablePayload=data.schedule;
@@ -190,6 +189,11 @@
   });
   window.addEventListener('pagehide',concealWorkspace);
   window.addEventListener('pageshow',event=>{if(event.persisted&&(personalLoaded||teacherMode))location.reload()});
+  function refreshAvatar(){
+    if(activeUser && !document.hidden) void showOwnAvatar(document.querySelector(teacherMode?'#teacherWorkspace .account-shortcut':'#accountShortcut'),activeUser);
+  }
+  window.addEventListener('pageshow',event=>{if(event.persisted && !personalLoaded && !teacherMode) refreshAvatar()});
+  document.addEventListener('visibilitychange',refreshAvatar);
   setInterval(()=>void checkAccess(),60000);
   document.addEventListener('visibilitychange',()=>void checkAccess());
   void bootstrap();

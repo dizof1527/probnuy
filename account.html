@@ -12,11 +12,11 @@
         document.documentElement.dataset.motion = 'off';
     } catch {}
   </script>
-  <link rel="stylesheet" href="./account.css?v=2026-11-24.7">
+  <link rel="stylesheet" href="./account.css?v=2026-11-24.8">
   <script defer src="./vendor/supabase-2.119.2.js"></script>
   <script defer src="./supabase-client.js"></script>
-  <script defer src="./account-language.js?v=2026-11-24.7"></script>
-  <script defer src="./account.js?v=2026-11-24.7"></script>
+  <script defer src="./account-language.js?v=2026-11-24.8"></script>
+  <script defer src="./account.js?v=2026-11-24.8"></script>
 </head>
 <body>
   <header class="site-header">
@@ -126,10 +126,9 @@
           <button id="nextPage" type="button" data-i18n="next">Далее</button>
         </div>
       </section>
-      <section aria-labelledby="topTitle">
-        <h2 id="topTitle" data-i18n="topTitle">Топ-5 по посещениям</h2>
-        <p id="topStatus" role="status"></p>
-        <ol id="topMembers"></ol>
+      <section aria-labelledby="dailyVisitsTitle">
+        <h2 id="dailyVisitsTitle" data-i18n="dailyVisits">Посещения сайта сегодня</h2>
+        <p id="dailyVisitsCount" role="status">…</p>
       </section>
     </div>
     <noscript>Для входа включите JavaScript. Enable JavaScript to sign in.</noscript>

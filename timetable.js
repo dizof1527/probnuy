@@ -533,7 +533,7 @@ document.addEventListener('keydown',event=>{
  if(event.key==='Escape'&&overlay===$('modal')){event.preventDefault();closeModal();return}
  if(event.key==='Tab'){const items=[...overlay.querySelectorAll('button:not([disabled]),input,select,textarea,a[href],[tabindex="0"]')].filter(el=>!el.hidden&&el.getClientRects().length);if(!items.length)return;const first=items[0],last=items[items.length-1];if(event.shiftKey&&(document.activeElement===first||!items.includes(document.activeElement))){event.preventDefault();last.focus()}else if(!event.shiftKey&&(document.activeElement===last||!items.includes(document.activeElement))){event.preventDefault();first.focus()}}
 });
-const APP_RELEASE='2026-11-24.7';
+const APP_RELEASE='2026-11-24.8';
 const SCHEDULE_RELEASE='2026-10-27';
 const SUPPORT_LINKS={telegram:'https://t.me/csenchis',max:'https://max.ru/u/f9LHodD0cOLBig0ncSmZu-eTLwPD-Hm-RjLt9f2f7IFpYJJtNziGpqJPshc'};
 const jsonRead=(key,fallback)=>{try{return JSON.parse(read(key))??fallback}catch{return fallback}};
@@ -702,10 +702,58 @@ function renderFreshnessShortcut(){
  button.innerHTML=`<span class="freshness-dot" aria-hidden="true"></span><span><strong>${esc(t('dataAsOf',{date:releaseDate()}))}</strong><small>${esc(t(publicationStatusKey()))}</small></span>${uiIcon('chevronRight')}`;
  if(state.modal==='freshness')renderFreshness();
 }
+function releaseNotesMarkup(){
+ const translations={
+  "ru": [
+    "Что нового на сайте",
+    "Преподаватели могут открывать своё расписание на главной, добавлять, переносить и отменять пары по назначенным предметам.",
+    "Фото из профиля теперь видно на кнопке аккаунта. При загрузке можно выбрать фрагмент снимка. Переходы в меню и расписании стали плавнее.",
+    "В аккаунте появился общий счётчик посещений за сегодня.",
+    "Появились регистрация на пяти языках и настройки профиля. Группу, курс и подгруппу можно изменить после регистрации.",
+    "В админке появились управление ролями, блокировка пользователей и редактирование пар."
+  ],
+  "en": [
+    "What’s new",
+    "Teachers can open their timetable on the home screen and add, move or cancel classes for their assigned subjects.",
+    "Crop your profile photo and see it on the account button. Menus and timetable changes have smoother transitions.",
+    "The account page shows total site visits today.",
+    "Registration is available in five languages. Change your group, year and subgroup in profile settings.",
+    "Administrators can manage roles, block accounts and edit classes."
+  ],
+  "es": [
+    "Novedades",
+    "El profesorado puede abrir su horario desde el inicio y añadir, mover o cancelar clases de sus asignaturas.",
+    "Recorta tu foto de perfil y mírala en el botón de cuenta. El menú y el horario tienen transiciones más suaves.",
+    "La cuenta muestra el total de visitas al sitio de hoy.",
+    "Registro en cinco idiomas. Puedes cambiar el grupo, curso y subgrupo en tu perfil.",
+    "La administración puede gestionar roles, bloquear cuentas y editar clases."
+  ],
+  "fr": [
+    "Nouveautés",
+    "Les enseignants peuvent consulter leur emploi du temps depuis l’accueil et ajouter, déplacer ou annuler les cours de leurs matières.",
+    "Recadrez votre photo de profil pour l’afficher sur le bouton du compte. Les transitions des menus et de l’emploi du temps sont plus fluides.",
+    "Le compte affiche le nombre total de visites du jour.",
+    "L’inscription est disponible en cinq langues. Le groupe, l’année et le sous-groupe sont modifiables dans le profil.",
+    "Les administrateurs peuvent gérer les rôles, bloquer des comptes et modifier les cours."
+  ],
+  "pt": [
+    "Novidades",
+    "Os docentes podem abrir o horário no ecrã inicial e adicionar, mover ou cancelar aulas das suas disciplinas.",
+    "Recorte a fotografia de perfil para a mostrar no botão da conta. Os menus e o horário têm transições mais suaves.",
+    "A conta mostra o total de visitas ao site hoje.",
+    "O registo está disponível em cinco idiomas. Pode alterar o grupo, ano e subgrupo no perfil.",
+    "A administração pode gerir funções, bloquear contas e editar aulas."
+  ]
+};
+ const [heading,...items]=translations[state.lang]||translations.ru;
+ const dateFormat=new Intl.DateTimeFormat(LOCALES[state.lang],{day:'numeric',month:'long',timeZone:'UTC'});
+ const days=[['2026-11-24',items.slice(0,3)],['2026-11-23',items.slice(3)]];
+ return `<section class="release-notes"><h3>${esc(heading)}</h3>${days.map(([date,lines])=>`<h4><time datetime="${date}">${esc(dateFormat.format(new Date(date)))}</time></h4><ul>${lines.map(line=>`<li>${esc(line)}</li>`).join('')}</ul>`).join('')}</section>`;
+}
 function renderFreshness(){
  $('modalTitle').textContent=t('freshnessTitle');
  const checked=state.publicationCheckedAt?new Intl.DateTimeFormat(LOCALES[state.lang],{dateStyle:'medium',timeStyle:'short',timeZone:UFATZ}).format(new Date(state.publicationCheckedAt))+' · '+clockLabel():t('notYetChecked');
- $('modalBody').innerHTML=`<div class="freshness-hero" data-freshness="${publicationStatus()}">${uiIcon('verified')}<div><strong role="status">${esc(t(publicationStatusKey()))}</strong><p>${esc(t('dataAsOf',{date:releaseDate()}))}</p></div></div><dl class="freshness-facts">${[['freshnessSourceLabel',t('freshnessSource')],['freshnessPublished',releaseDate()],['freshnessLastCheck',checked],['freshnessAppVersion',APP_RELEASE]].map(([key,value])=>`<div><dt>${esc(t(key))}</dt><dd>${esc(value)}</dd></div>`).join('')}</dl><p class="appearance-note">${esc(t('freshnessExplanation'))}</p>${location.protocol==='file:'?`<p class="appearance-note">${esc(t('checkFileHint'))}</p>`:`<button class="primary freshness-check" data-action="${publicationStatus()==='new'?'reloadVersion':'checkFreshness'}" ${versionChecking||navigator.onLine===false?'disabled':''}>${uiIcon('refresh')}<span>${esc(t(publicationStatus()==='new'?'newVersionReady':versionChecking?'checkChecking':'checkNow'))}</span></button>`}<button class="report-issue" data-action="reportIssue">${uiIcon('flag')}${esc(t('reportIssue'))}</button>`;
+ $('modalBody').innerHTML=`<div class="freshness-hero" data-freshness="${publicationStatus()}">${uiIcon('verified')}<div><strong role="status">${esc(t(publicationStatusKey()))}</strong><p>${esc(t('dataAsOf',{date:releaseDate()}))}</p></div></div><dl class="freshness-facts">${[['freshnessSourceLabel',t('freshnessSource')],['freshnessPublished',releaseDate()],['freshnessLastCheck',checked],['freshnessAppVersion',APP_RELEASE]].map(([key,value])=>`<div><dt>${esc(t(key))}</dt><dd>${esc(value)}</dd></div>`).join('')}</dl>${releaseNotesMarkup()}<p class="appearance-note">${esc(t('freshnessExplanation'))}</p>${location.protocol==='file:'?`<p class="appearance-note">${esc(t('checkFileHint'))}</p>`:`<button class="primary freshness-check" data-action="${publicationStatus()==='new'?'reloadVersion':'checkFreshness'}" ${versionChecking||navigator.onLine===false?'disabled':''}>${uiIcon('refresh')}<span>${esc(t(publicationStatus()==='new'?'newVersionReady':versionChecking?'checkChecking':'checkNow'))}</span></button>`}<button class="report-issue" data-action="reportIssue">${uiIcon('flag')}${esc(t('reportIssue'))}</button>`;
 }
 
 const REPORT_TYPES=['issueTime','issueRoom','issueSubgroup','issueTeacher','issueMissing','issueOther'];

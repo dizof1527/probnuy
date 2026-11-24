@@ -37,7 +37,7 @@
     settings.translate();
     if (signedInProfile) showProfile(signedInProfile);
     if (role === 'admin') void loadAccounts();
-    void renderTop();
+    void renderDailyVisits();
     if (!el('authPanel').hidden) el('authTitle').focus();
   });
 
@@ -307,7 +307,7 @@
     const {data,error}=await client.rpc('bgau_personal_timetable_menu');
     if(error||request!==generation||!data?.length)return;
     const links=el('personalLinks');
-    for(const entry of data){
+    for(const entry of data.filter(entry=>entry.owner_id===actor?.id)){
       const item=document.createElement('li');
       const link=document.createElement('a');
       const url=new URL('./',location.href);
@@ -317,7 +317,7 @@
       item.append(link);
       links.append(item);
     }
-    el('personalPanel').hidden=false;
+    el('personalPanel').hidden=!links.childElementCount;
   }
 
   async function loadAccounts() {
@@ -421,7 +421,7 @@
         if(actorVersion!==generation)return;
         item.replaceWith(accountRow({...account,banned:!account.banned}));
         notify(account.banned?'memberUnblocked':'memberBlocked');
-        void renderTop();
+        void renderDailyVisits();
       }catch{if(actorVersion===generation)notify('accessChangeError',true)}
       finally{ban.disabled=false}
     });
@@ -507,22 +507,18 @@
     }catch{message.textContent='Не удалось загрузить предметы преподавателей.'}
   }
 
-  async function renderTop() {
-    const list = el('topMembers');
-    const message = el('topStatus');
+  async function renderDailyVisits() {
+    const counter=el('dailyVisitsCount');
     try {
-      const { data, error } = await client.rpc('bgau_top_five');
-      if (error) throw error;
-      list.replaceChildren(...data.slice(0, 5).map(account => {
-        const item = document.createElement('li');
-        item.textContent = account.nickname;
-        return item;
-      }));
-      message.textContent = data.length ? '' : t('noVisits');
+      const {data,error}=await client.rpc('bgau_visits_today');
+      if(error || data==null) throw new Error();
+      counter.textContent=new Intl.NumberFormat(document.documentElement.lang).format(data);
     } catch {
-      message.textContent = t('topError');
+      counter.textContent=t('visitsError');
     }
   }
+  window.addEventListener('bgau-visit-recorded',renderDailyVisits);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)void renderDailyVisits()});
 
   async function getAvatar(userId) {
     const { data, error } = await client.rpc('bgau_get_avatar', userId ? { p_user_id: userId } : {});
@@ -740,7 +736,7 @@
       if (error) throw error;
       if (request !== generation) return;
       notify('profileSaved');
-      void renderTop();
+      void renderDailyVisits();
       const { data } = await client.auth.getSession();
       if (request === generation) await syncSession('PROFILE_SAVED', data.session);
     } catch (error) {
@@ -762,7 +758,7 @@
 
   const fragment = new URLSearchParams(location.hash.slice(1));
   if (params.has('error') || fragment.has('error')) notify('linkExpired', true);
-  void renderTop();
+  void renderDailyVisits();
   client.auth.onAuthStateChange((event, session) => {
     setTimeout(() => void syncSession(event, session), 0);
   });
