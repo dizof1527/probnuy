@@ -8,6 +8,8 @@
   }
   const { client } = cloud;
   let activeUser = null;
+  let personalLoaded = false;
+  let personalOwner = null;
 
   function goToAccount(reason) {
     const url = new URL('./account.html',location.href);
@@ -41,6 +43,33 @@
     });
   }
 
+  function addPersonalGroup(schedule, sheet) {
+    const key = 'personal_timetable';
+    const weeks = Array.from({length:17}, (_, index) => index + 1);
+    const unknownTeacher = schedule.teachers.length;
+    schedule.teachers.push('');
+    const rows = [];
+    for (const [type, lessons] of Object.entries({common:sheet.common, odd:sheet.odd, even:sheet.even})) {
+      const lessonWeeks = weeks.filter(n => type === 'common' || n % 2 === Number(type === 'odd'));
+      for (const lesson of lessons) {
+        let subject = schedule.subjects.indexOf(lesson.subject);
+        if (subject === -1) subject = schedule.subjects.push(lesson.subject) - 1;
+        rows.push([lesson.day, lesson.slot, Number(lesson.kind === 'Лекция'), subject, lesson.place,
+          unknownTeacher, lessonWeeks.join(', '), lesson.subgroup, lessonWeeks, lesson.start, lesson.end, [], lesson.kind]);
+      }
+    }
+    schedule.groups[key] = rows;
+    schedule.labels[key] = sheet.label;
+    schedule.infos[key] = {course:1, mode:'Очная'};
+    schedule.personalGroup = key;
+    return key;
+  }
+
+  function concealPersonal() {
+    if (!personalLoaded) return;
+    for (const id of ['appShell','footer','modal','onboard']) document.getElementById(id).hidden = true;
+  }
+
   async function bootstrap() {
     try {
       const {data:{session},error:sessionError}=await client.auth.getSession();
@@ -53,16 +82,26 @@
       const {data:access,error:accessError}=await client.rpc('bgau_access_status');
       if(accessError)throw accessError;
       if(access!=='ready'){goToAccount(access);return}
-      const {data:personal,error:personalError}=await client.rpc('bgau_personal_timetable_menu');
-      if(!personalError&&Array.isArray(personal)&&personal.some(entry=>entry.owner_id===session.user.id)){
-        location.replace(new URL('./personal.html',location.href).href);
-        return;
-      }
+      const requested = new URLSearchParams(location.search).get('personal');
+      const {data:personal}=await client.rpc('bgau_personal_timetable_menu');
+      const entries = Array.isArray(personal) ? personal : [];
+      const entry = entries.find(item => item.owner_id === requested)
+        || entries.find(item => item.owner_id === session.user.id) || entries[0];
       const {data,error}=await client.rpc('bgau_read_timetable');
       if(error)throw error;
       if(!data?.schedule?.groups)throw new Error('Timetable unavailable');
       activeUser=session.user.id;
       useProfilePreferences(session.user,data.preferences,data.schedule.groups);
+      if (entry) {
+        const {data:sheet,error:sheetError}=await client.rpc('bgau_read_personal_timetable',{p_owner_id:entry.owner_id});
+        if(activeUser!==session.user.id)return;
+        if (!sheetError && sheet && Array.isArray(sheet.common) && Array.isArray(sheet.odd) && Array.isArray(sheet.even)) {
+          const key=addPersonalGroup(data.schedule,sheet);
+          personalLoaded=true;
+          personalOwner=entry.owner_id;
+          if (entry.owner_id===session.user.id || entry.owner_id===requested) window.bgauInitialGroup=key;
+        }
+      }
       window.bgauTimetablePayload=data.schedule;
       await loadScript('./timetable.js');
       document.getElementById('timetableGate').hidden=true;
@@ -78,14 +117,22 @@
     if(!activeUser||document.hidden||!navigator.onLine)return;
     try {
       const {data,error}=await client.rpc('bgau_access_status');
-      if(!error&&data!=='ready'){goToAccount(data);return}
+      if(!error&&data!=='ready'){concealPersonal();goToAccount(data);return}
+      if(personalLoaded){
+        const {data:entries,error:menuError}=await client.rpc('bgau_personal_timetable_menu');
+        if(!menuError&&!entries?.some(entry=>entry.owner_id===personalOwner)){
+          concealPersonal();location.replace('./');return;
+        }
+      }
       if(await cloud.readRole(activeUser)==='teacher')location.replace(new URL('./teacher.html',location.href).href);
     } catch { /* The displayed timetable was already delivered to an authorized account. */ }
   }
 
   client.auth.onAuthStateChange((event,session)=>{
-    if(activeUser&&(event==='SIGNED_OUT'||(session&&session.user.id!==activeUser))) goToAccount();
+    if(activeUser&&(event==='SIGNED_OUT'||(session&&session.user.id!==activeUser))){activeUser=null;concealPersonal();goToAccount()}
   });
+  window.addEventListener('pagehide',concealPersonal);
+  window.addEventListener('pageshow',event=>{if(event.persisted&&personalLoaded)location.reload()});
   setInterval(()=>void checkAccess(),60000);
   document.addEventListener('visibilitychange',()=>void checkAccess());
   void bootstrap();

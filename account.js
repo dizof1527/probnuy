@@ -309,8 +309,8 @@
     for(const entry of data){
       const item=document.createElement('li');
       const link=document.createElement('a');
-      const url=new URL('./personal.html',location.href);
-      if(role==='admin')url.searchParams.set('owner',entry.owner_id);
+      const url=new URL('./',location.href);
+      url.searchParams.set('personal',entry.owner_id);
       link.href=url.href;
       link.textContent=entry.display_name||t('privateTimetables');
       item.append(link);

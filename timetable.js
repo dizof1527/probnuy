@@ -86,14 +86,24 @@ const dateOf=(week,day)=>new Date(BASE_UTC+((week-1)*7+day-1)*86400000);
 const toMinutes=time=>+time.slice(0,2)*60+ +time.slice(3,5);
 const t=(key,vars={})=>String((I18N[state.lang]||I18N.ru)[key]??I18N.ru[key]??key).replace(/\{(\w+)\}/g,(_,id)=>vars[id]??'');
 const initialLanguage=read('bashgau_lang_v1');
-const state={lang:I18N[initialLanguage]?initialLanguage:'ru',group:DATA.groups[read('bash_grp')]?read('bash_grp'):'AIP101',week:currentWeek(),day:Math.min(today(),6),subgroup:DATA.groups[read('bash_grp')]?(+read('aip_sg')||0):0,groupLock:read('bash_glock'),subgroupLock:+read('bash_sg_lock')||0,theme:'graphite',query:'',groupQuery:'',education:'bachelor',mode:'Очная',course:1,openCard:-1,modal:'',languageChosen:!!I18N[initialLanguage]};
+const initialGroup=window.bgauInitialGroup||read('bash_grp');
+const state={lang:I18N[initialLanguage]?initialLanguage:'ru',group:DATA.groups[initialGroup]?initialGroup:'AIP101',week:currentWeek(),day:Math.min(today(),6),subgroup:DATA.groups[initialGroup]&&initialGroup!==DATA.personalGroup?(+read('aip_sg')||0):0,groupLock:read('bash_glock'),subgroupLock:+read('bash_sg_lock')||0,theme:'graphite',query:'',groupQuery:'',education:'bachelor',mode:'Очная',course:1,openCard:-1,modal:'',languageChosen:!!I18N[initialLanguage]};
+const inPersonalGroup=()=>state.group===DATA.personalGroup;
 // The last selected group remains active; pinned groups are quick access shortcuts.
 const localeDate=date=>new Intl.DateTimeFormat(LOCALES[state.lang],{timeZone:'UTC',weekday:'long',day:'numeric',month:'long'}).format(date);
 const modeKey=mode=>({'Очная':'fullTime','Очно-заочная':'blended','Заочная':'partTime','Колледж':'college'})[mode]||'fullTime';
 const groupInfo=key=>({...DATA.infos[key]||{course:1,mode:'Очная'},education:/^(?:ПРСМ|ПЖПМ|ТОПМ)(?:\s|\()/u.test(DATA.labels[key]||'')?'master':'bachelor'});
 const groupsSorted=()=>Object.keys(DATA.groups).map(key=>({key,label:DATA.labels[key]||key,...groupInfo(key)})).sort((a,b)=>a.course-b.course||a.label.localeCompare(b.label,'ru',{numeric:true}));
-const subject=row=>state.lang==='ru'?DATA.subjects[row[3]]||'':SUBJECT_TRANSLATIONS[state.lang]?.[row[3]]||DATA.subjects[row[3]]||'';
+const subject=row=>state.lang==='ru'||row[12]?DATA.subjects[row[3]]||'':SUBJECT_TRANSLATIONS[state.lang]?.[row[3]]||DATA.subjects[row[3]]||'';
+const lessonType=row=>row[12]==='Семинар'&&state.lang==='ru'?'Семинар':t(row[2]?'lecture':'practice');
 const teacher=row=>state.lang==='ru'?DATA.teachers[row[5]]||'':TEACHER_TRANSLATIONS[state.lang]?.[row[5]]||DATA.teachers[row[5]]||'';
+for(const [lang,text] of Object.entries({
+ ru:'Личное расписание доступно при подключении к интернету.',
+ en:'Connect to the internet to view the personal timetable.',
+ fr:'Connectez-vous à Internet pour consulter l’emploi du temps personnel.',
+ es:'Conéctate a internet para consultar el horario personal.',
+ pt:'Liga-te à internet para consultar o horário pessoal.'
+})) I18N[lang].personalOnline=text;
 for(const [lang,account,edit] of [
  ['ru','Аккаунт','Редактировать пару'],['en','Account','Edit class'],['es','Cuenta','Editar clase'],
  ['fr','Compte','Modifier le cours'],['pt','Conta','Editar aula']
@@ -114,7 +124,7 @@ function room(value){
 }
 const rowId=row=>[row[0],row[1],row[2],row[3],row[4],row[5],row[7],row[9],row[10],row[8].join(',')].join(':');
 const noteKey=row=>'note_'+state.group+'_'+DATA.subjects[row[3]];
-const noteValue=row=>read(noteKey(row));
+const noteValue=row=>inPersonalGroup()?'':read(noteKey(row));
 const formatWeek=row=>row[8].join(', ');
 function matchingRows(week=state.week,day=state.day,query=state.query,subgroup=state.subgroup){
  const needle=query.trim().toLocaleLowerCase('ru-RU'),selected=validSubgroup(subgroup);
@@ -133,6 +143,8 @@ function renderWeekOverview(){
  $('weekOverviewPanel').innerHTML=`<h3>${esc(t('weekLoad'))}</h3><div class="week-stat"><strong>${total}</strong><span>${esc(t('classesUnit'))}</span></div><div class="week-chart">${counts.map((n,i)=>`<button class="${state.day===i+1?'on':''}" data-action="day" data-value="${i+1}" aria-label="${esc(I18N[state.lang].longDays[i]+', '+t('dayClasses',{n}))}" aria-pressed="${state.day===i+1}"><span class="bar-count">${n}</span><span class="bar" style="--bar:${Math.max(4,Math.round(n/max*64))}px" aria-hidden="true"></span><small>${esc(I18N[state.lang].shortDays[i])}</small></button>`).join('')}</div><p class="week-caption">${esc(t('weekCaption'))}</p>`;
 }
 function render(animate=false){
+ document.body.classList.toggle('personal-view',inPersonalGroup());
+ document.body.classList.toggle('has-personal-timetable',Boolean(DATA.personalGroup));
  document.documentElement.lang=state.lang;themeApply();document.title=t('app');
  document.querySelectorAll('[data-i18n]').forEach(el=>el.textContent=t(el.dataset.i18n));
  document.querySelectorAll('[data-icon]').forEach(el=>el.innerHTML=uiIcon(el.dataset.icon));
@@ -181,7 +193,7 @@ function renderCards(animate=false){
   const opened=state.openCard===rowId(row),actual=state.week===realWeek&&row[0]===realDay&&!state.query;
   const live=actual&&minutes>=toMinutes(row[9])&&minutes<toMinutes(row[10]);const past=actual&&minutes>=toMinutes(row[10]);
   const conflict=row[11]?.includes(state.week);
-  return lessonGap(rows,index)+`<article style="--stagger:${Math.min(index,5)*45}ms" class="card ${row[2]?'lec':'prac'} ${live?'live':''} ${past?'past':''}"><button class="card-button" data-action="expand" data-index="${index}" aria-expanded="${opened}"><span class="time-block"><b>${esc(row[9])}</b><small>${esc(row[10])}</small><span class="pair-no">${esc(t('pair',{n:row[1]}))}</span></span><span class="lesson-body"><span class="lesson-top"><span class="lesson-type">${esc(t(row[2]?'lecture':'practice'))}</span><span class="subgroup-label">${esc(row[7]?subgroupName(Number(row[7])):t('allGroups'))}</span>${state.query?`<span class="subgroup-label">${esc(I18N[state.lang].shortDays[row[0]-1])}</span>`:''}${live?`<span class="lesson-live">${esc(t('now'))}</span>`:''}${conflict?`<span class="subgroup-label" title="${esc(t('sourceConflict'))}">⚠ ${esc(t('sourceConflictShort'))}</span>`:''}</span><span class="title">${esc(subject(row))}</span><span class="lesson-meta">${row[4]?`<span>${uiIcon('pin')}${esc(room(row[4]))}</span>`:''}<span>${uiIcon('person')}${esc(teacher(row)||t('noTeacher'))}</span></span></span><span class="card-chevron">${uiIcon('chevronRight')}</span></button>${opened?`<div class="detail"><p>${esc(t('teacher'))}: <b>${esc(teacher(row)||t('noTeacher'))}</b></p><p>${esc(t('weeks'))}: <b>${esc(formatWeek(row))}</b></p>${conflict?`<p>⚠️ ${esc(t('sourceConflict'))}</p>`:''}<label for="noteText">${esc(t('note'))}</label><input id="noteText" data-note-index="${index}" value="${esc(noteValue(row))}" placeholder="${esc(t('notePlaceholder'))}"><div class="lesson-tools"><button data-action="copyLesson" data-index="${index}">${uiIcon('copy')}${esc(t('copyLesson'))}</button>${window.bgauScheduleCloud?.isAdmin()?`<button data-action="editLesson" data-index="${index}">${uiIcon('settings')}${esc(t('editLesson'))}</button>`:''}</div><button class="report-issue" data-action="reportIssue" data-index="${index}">${uiIcon('flag')}${esc(t('reportIssue'))}</button></div>`:''}</article>`;
+  return lessonGap(rows,index)+`<article style="--stagger:${Math.min(index,5)*45}ms" class="card ${row[2]?'lec':'prac'} ${live?'live':''} ${past?'past':''}"><button class="card-button" data-action="expand" data-index="${index}" aria-expanded="${opened}"><span class="time-block"><b>${esc(row[9])}</b><small>${esc(row[10])}</small><span class="pair-no">${esc(t('pair',{n:row[1]}))}</span></span><span class="lesson-body"><span class="lesson-top"><span class="lesson-type">${esc(lessonType(row))}</span><span class="subgroup-label">${esc(row[7]?subgroupName(Number(row[7])):t('allGroups'))}</span>${state.query?`<span class="subgroup-label">${esc(I18N[state.lang].shortDays[row[0]-1])}</span>`:''}${live?`<span class="lesson-live">${esc(t('now'))}</span>`:''}${conflict?`<span class="subgroup-label" title="${esc(t('sourceConflict'))}">⚠ ${esc(t('sourceConflictShort'))}</span>`:''}</span><span class="title">${esc(subject(row))}</span><span class="lesson-meta">${row[4]?`<span>${uiIcon('pin')}${esc(room(row[4]))}</span>`:''}<span>${uiIcon('person')}${esc(teacher(row)||t('noTeacher'))}</span></span></span><span class="card-chevron">${uiIcon('chevronRight')}</span></button>${opened?`<div class="detail"><p>${esc(t('teacher'))}: <b>${esc(teacher(row)||t('noTeacher'))}</b></p><p>${esc(t('weeks'))}: <b>${esc(formatWeek(row))}</b></p>${conflict?`<p>⚠️ ${esc(t('sourceConflict'))}</p>`:''}<label for="noteText">${esc(t('note'))}</label><input id="noteText" data-note-index="${index}" value="${esc(noteValue(row))}" placeholder="${esc(t('notePlaceholder'))}"><div class="lesson-tools"><button data-action="copyLesson" data-index="${index}">${uiIcon('copy')}${esc(t('copyLesson'))}</button>${window.bgauScheduleCloud?.isAdmin()?`<button data-action="editLesson" data-index="${index}">${uiIcon('settings')}${esc(t('editLesson'))}</button>`:''}</div><button class="report-issue" data-action="reportIssue" data-index="${index}">${uiIcon('flag')}${esc(t('reportIssue'))}</button></div>`:''}</article>`;
  }).join(''):`<div class="empty"><span class="empty-icon">${uiIcon('schedule')}</span><strong>${esc(t(state.query?'noSearch':'noLessons'))}</strong><span>${esc(t('noLessonsHint'))}</span>${!state.query?`<button class="primary" data-action="nextTeachingDay">${esc(t('nextTeachingDay'))}</button>`:''}<button class="report-issue" data-action="reportIssue">${uiIcon('flag')}${esc(t('reportIssue'))}</button></div>`;
  const cards=$('cards');if(lastCardMarkup!==markup){lastCardMarkup=markup;cards.classList.toggle('is-changing',animate);cards.innerHTML=markup}
  renderDaySummary(rows);syncJumpToCurrent();
@@ -211,6 +223,7 @@ function renderModal(){if(!state.modal)return;const body=$('modalBody'),title=$(
  title.textContent=t('menu');body.innerHTML=`${location.protocol==='file:'?'':`<a class="menu-item" href="./account.html"><span>${uiIcon('person')}${esc(t('cloudAccount'))}</span><span aria-hidden="true">›</span></a>`}<h3>${esc(t('group'))}</h3><button class="menu-item" data-action="groups"><span>${uiIcon('groups')}${esc(DATA.labels[state.group])}</span><small>${esc(t('change'))} ›</small></button><button class="menu-item" data-action="pinGroup" aria-pressed="${groupPinned()}"><span>${uiIcon('star')}${esc(t(groupPinned()?'unpinGroup':'pinGroup'))}</span><small>${esc(t(groupPinned()?'lockOn':'lockOff'))}</small></button><button class="menu-item" data-action="pinSubgroup" aria-pressed="${subgroupSaved()}"><span class="menu-copy">${esc(t(subgroupSaved()?'unpinSubgroup':'pinSubgroup'))}<small>${esc(subgroupName())} · ${esc(DATA.labels[state.group])}</small></span>${uiIcon('bookmark')}</button><h3>${esc(t('preferences'))}</h3><button class="menu-item" data-action="language"><span>${uiIcon('globe')}${esc(t('changeLanguage'))}</span><small>${esc(LANGUAGES[state.lang])} ›</small></button><button class="menu-item" data-action="themes"><span>${uiIcon('settings')}${esc(t('themeSettings'))}</span><small>${esc(t('graphiteTheme'))} ›</small></button><h3>${esc(t('menu'))}</h3>${[['week','weekOverview','week'],['teacherSchedule','forTeachers','teachers'],['teachers','teachers','teachers'],['notes','notes','notes'],['bells','bells','bells'],['freshness','freshnessTitle','verified'],['reportIssue','reportIssue','flag'],['updates','updates','bells'],['share','share','share'],['copy','copy','copy'],['offline','offlineTitle','offline'],['download','download','download'],['support','support','support']].map(([a,k,icon])=>`<button class="menu-item" data-action="${a}"><span>${uiIcon(icon)} ${esc(t(k))}</span><span>›</span></button>`).join('')}<p class="muted">${esc(t('officialNames'))} ${esc(t('offline'))}.</p>`;return;
  }
  if(state.modal==='offline'){
+ if(DATA.personalGroup){title.textContent=t('offlineTitle');body.textContent=t('personalOnline');return}
  title.textContent=t('offlineTitle');body.innerHTML=`<p class="muted">${esc(t('offlineIntro'))}</p><div class="offline-state" id="offlineModalState"></div><section class="offline-platform"><h3>${esc(t('androidTitle'))}</h3><p>${esc(t('androidHint'))}</p></section><section class="offline-platform"><h3>${esc(t('iphoneTitle'))}</h3><p>${esc(t('iphoneHint'))}</p></section>${installPrompt?`<button class="primary" data-action="install">${esc(t('installApp'))}</button>`:`<section class="offline-platform"><h3>${esc(t(window.matchMedia?.('(display-mode: standalone)').matches||navigator.standalone===true?'installedHere':'notInstalled'))}</h3><p>${esc(t(window.isSecureContext?'installBrowserHint':'secureNeeded'))}</p></section>`}<button class="primary" data-action="download">↓ ${esc(t('download'))}</button><p class="muted">${esc(t('offlineNote'))}</p>`;refreshOfflineHint();return;
  }
  if(state.modal==='groups'){
@@ -342,7 +355,7 @@ function teacherParticipantLabel(subgroups){
 }
 function teacherSessionCard(session){
  const row=session.row;
- return `<article class="teacher-lesson ${row[2]?'lec':'prac'}" data-teacher-day="${row[0]}" data-teacher-start="${row[9]}" data-teacher-end="${row[10]}"><div class="teacher-time"><b>${esc(row[9])}</b><span>${esc(row[10])}</span><small>${esc([...session.pairs].sort((a,b)=>a-b).map(n=>t('pair',{n})).join(' / '))}</small></div><div class="teacher-lesson-copy"><div class="lesson-top"><span class="lesson-type">${esc(t(row[2]?'lecture':'practice'))}</span><span class="teacher-live-label" hidden>${esc(t('now'))}</span>${session.overlap?`<span class="teacher-overlap">${esc(t('teacherOverlap'))}</span>`:''}</div><strong>${esc(subject(row))}</strong><span class="teacher-room">${uiIcon('pin')}<span>${esc(room(row[4])||t('teacherRoomMissing'))}</span></span><div class="teacher-group-list">${[...session.groups].sort(([a],[b])=>(DATA.labels[a]||a).localeCompare(DATA.labels[b]||b,'ru',{numeric:true})).map(([group,subgroups])=>`<span class="teacher-group-chip">${esc(DATA.labels[group]||group)}<small>${esc(teacherParticipantLabel(subgroups))}</small></span>`).join('')}</div>${session.multipleTeachers?`<p class="teacher-session-note">${esc(t('teacherSharedStaff'))}</p>`:''}${session.sourceConflict?`<p class="teacher-session-note">${esc(t('sourceConflict'))}</p>`:''}${session.overlap?`<p class="teacher-session-note">${esc(t('teacherOverlapHint'))}</p>`:''}</div></article>`;
+ return `<article class="teacher-lesson ${row[2]?'lec':'prac'}" data-teacher-day="${row[0]}" data-teacher-start="${row[9]}" data-teacher-end="${row[10]}"><div class="teacher-time"><b>${esc(row[9])}</b><span>${esc(row[10])}</span><small>${esc([...session.pairs].sort((a,b)=>a-b).map(n=>t('pair',{n})).join(' / '))}</small></div><div class="teacher-lesson-copy"><div class="lesson-top"><span class="lesson-type">${esc(lessonType(row))}</span><span class="teacher-live-label" hidden>${esc(t('now'))}</span>${session.overlap?`<span class="teacher-overlap">${esc(t('teacherOverlap'))}</span>`:''}</div><strong>${esc(subject(row))}</strong><span class="teacher-room">${uiIcon('pin')}<span>${esc(room(row[4])||t('teacherRoomMissing'))}</span></span><div class="teacher-group-list">${[...session.groups].sort(([a],[b])=>(DATA.labels[a]||a).localeCompare(DATA.labels[b]||b,'ru',{numeric:true})).map(([group,subgroups])=>`<span class="teacher-group-chip">${esc(DATA.labels[group]||group)}<small>${esc(teacherParticipantLabel(subgroups))}</small></span>`).join('')}</div>${session.multipleTeachers?`<p class="teacher-session-note">${esc(t('teacherSharedStaff'))}</p>`:''}${session.sourceConflict?`<p class="teacher-session-note">${esc(t('sourceConflict'))}</p>`:''}${session.overlap?`<p class="teacher-session-note">${esc(t('teacherOverlapHint'))}</p>`:''}</div></article>`;
 }
 function renderTeacherSchedule(){
  $('modalTitle').textContent=t('forTeachers');
@@ -377,21 +390,24 @@ function teacherScheduleText(){
 function selectLanguage(code){if(!I18N[code])return;state.lang=code;state.languageChosen=true;save('bashgau_lang_v1',code);$('onboard').hidden=true;closeModal();render()}
 function selectGroup(key){
  if(!DATA.groups[key])return;
- state.group=key;save('bash_grp',key);rememberRecent(key);
+ state.group=key;
+ if(!inPersonalGroup()){save('bash_grp',key);rememberRecent(key)}
  state.subgroup=Object.hasOwn(state.subgroupPrefs,key)?validSubgroup(state.subgroupPrefs[key]):0;
- save('aip_sg',state.subgroup);state.openCard=-1;state.groupQuery='';state.query='';$('lessonSearch').value='';
+ if(!inPersonalGroup())save('aip_sg',state.subgroup);
+ state.openCard=-1;state.groupQuery='';state.query='';$('lessonSearch').value='';
  if(state.modal)closeModal();render(true);
 }
 function setDay(day){state.day=+day;state.openCard=-1;render(true)}
 function setWeek(week){state.week=Math.max(1,Math.min(MAX_WEEK,+week));state.openCard=-1;render(true)}
 function setSubgroup(subgroup){
- state.subgroup=validSubgroup(subgroup);save('aip_sg',state.subgroup);state.openCard=-1;
+ state.subgroup=validSubgroup(subgroup);if(!inPersonalGroup())save('aip_sg',state.subgroup);state.openCard=-1;
  if(subgroupSaved()){state.subgroupPrefs[state.group]=state.subgroup;jsonSave('bash_subgroup_prefs_v2',state.subgroupPrefs)}
  render(true);
 }
 async function copyText(text){try{await navigator.clipboard.writeText(text)}catch{const el=document.createElement('textarea');el.value=text;document.body.append(el);el.select();document.execCommand('copy');el.remove()}toast(t('copied'))}
 function scheduleText(){const rows=matchingRows(),date=localeDate(dateOf(state.week,state.day));return `${t('app')} · ${DATA.labels[state.group]} · ${t('week',{n:state.week})} · ${date}\n`+(rows.length?rows.map(row=>`${t('pair',{n:row[1]})} ${row[9]}–${row[10]} · ${subject(row)}${row[7]?` · ${row[7]} ${t('sgShort')}`:''} · ${t('room')}: ${room(row[4])}`).join('\n'):t('noLessons'))}
 async function offlineSnapshot(){
+ if(DATA.personalGroup)throw new Error('Personal timetable cannot be exported');
  const copy=document.documentElement.cloneNode(true);copy.querySelector('body').classList.remove('modal-open','animations-paused');
  copy.querySelectorAll('script[data-online-feature]').forEach(script=>script.remove());
  copy.querySelector('#timetableGate')?.remove();
@@ -436,6 +452,7 @@ window.addEventListener('online',refreshOfflineHint);window.addEventListener('of
 window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();installPrompt=event;renderInstallButton();if(state.modal==='offline')renderModal()});
 window.addEventListener('appinstalled',()=>{installPrompt=null;renderInstallButton();toast(t('installed'));if(state.modal==='offline')renderModal()});
 document.addEventListener('click',async event=>{const target=event.target.closest('[data-action]');if(!target)return;const action=target.dataset.action,value=target.dataset.value;
+ if(inPersonalGroup()&&['reportIssue','copy','copyLesson','copyDiagnostic','share','notes'].includes(action))return;
  switch(action){
  case 'menu':openModal('menu');break;case 'close':closeModal();break;case 'groups':{const info=groupInfo(state.group);state.education=info.education;state.mode=info.mode;state.course=info.course;state.groupQuery='';openModal('groups');break}
  case 'education':if(!['bachelor','master'].includes(value))break;state.education=value;state.course=1;renderGroupChoices();$('educationTabs').querySelector(`[data-value="${value}"]`)?.focus({preventScroll:true});break;
@@ -496,7 +513,7 @@ document.addEventListener('input',event=>{if(event.target.id==='lessonSearch'){s
  else if(event.target.id==='teacherSearch'){state.teacherQuery=event.target.value;renderTeacherChoices()}
  else if(event.target.id==='reportDescription'||event.target.id==='reportCategory'){syncReportDraft()}
  else if(event.target.dataset.appearance){updateAppearance(event.target.dataset.appearance,event.target.type==='checkbox'?event.target.checked:event.target.value)}
- else if(event.target.id==='noteText'){const row=matchingRows()[+event.target.dataset.noteIndex];if(row){const value=event.target.value.trim();value?save(noteKey(row),value):del(noteKey(row))}}
+ else if(event.target.id==='noteText'&&!inPersonalGroup()){const row=matchingRows()[+event.target.dataset.noteIndex];if(row){const value=event.target.value.trim();value?save(noteKey(row),value):del(noteKey(row))}}
 });
 document.addEventListener('change',event=>{const el=event.target;if(el.id==='teacherWeekSelect'){updateTeacherSchedule(el.value,state.teacherDay,'#teacherWeekSelect');return}if(el.id==='reportCategory')syncReportDraft();if(el.dataset.appearanceHex){const value='#'+el.value.trim().replace(/^#/,'');if(/^#[0-9a-f]{6}$/i.test(value))updateAppearance(el.dataset.appearanceHex,value);else{syncAppearanceControls();toast(t('invalidColor'))}}if(el.dataset.appearance)updateAppearance(el.dataset.appearance,el.type==='checkbox'?el.checked:el.value)});
 $('modal').addEventListener('click',event=>{if(event.target===$('modal'))closeModal()});
@@ -506,7 +523,7 @@ document.addEventListener('keydown',event=>{
  if(event.key==='Escape'&&overlay===$('modal')){event.preventDefault();closeModal();return}
  if(event.key==='Tab'){const items=[...overlay.querySelectorAll('button:not([disabled]),input,select,textarea,a[href],[tabindex="0"]')].filter(el=>!el.hidden&&el.getClientRects().length);if(!items.length)return;const first=items[0],last=items[items.length-1];if(event.shiftKey&&(document.activeElement===first||!items.includes(document.activeElement))){event.preventDefault();last.focus()}else if(!event.shiftKey&&(document.activeElement===last||!items.includes(document.activeElement))){event.preventDefault();first.focus()}}
 });
-const APP_RELEASE='2026-11-24.2';
+const APP_RELEASE='2026-11-24.3';
 const SCHEDULE_RELEASE='2026-10-27';
 const SUPPORT_LINKS={telegram:'https://t.me/csenchis',max:'https://max.ru/u/f9LHodD0cOLBig0ncSmZu-eTLwPD-Hm-RjLt9f2f7IFpYJJtNziGpqJPshc'};
 const jsonRead=(key,fallback)=>{try{return JSON.parse(read(key))??fallback}catch{return fallback}};
@@ -683,6 +700,7 @@ function renderFreshness(){
 
 const REPORT_TYPES=['issueTime','issueRoom','issueSubgroup','issueTeacher','issueMissing','issueOther'];
 function openReport(index){
+ if(inPersonalGroup())return;
  const row=index!==undefined?matchingRows()[Number(index)]:null;
  const context={group:state.group,week:state.week,day:row?row[0]:state.day,subgroup:row?Number(row[7]):state.subgroup,row:row?JSON.parse(JSON.stringify(row)):null};
  const key=JSON.stringify([context.group,context.week,context.day,context.subgroup,context.row?rowId(context.row):'day']);
@@ -851,7 +869,7 @@ state.notifications=read('bash_change_notifications')==='1';
 state.changes=[];
 state.newVersion=false;
 state.updateDismissed=false;
-function rememberRecent(key){state.recent=[key,...state.recent.filter(item=>item!==key)].slice(0,6);jsonSave('bash_recent_groups_v2',state.recent)}
+function rememberRecent(key){if(key===DATA.personalGroup)return;state.recent=[key,...state.recent.filter(item=>item!==key)].slice(0,6);jsonSave('bash_recent_groups_v2',state.recent)}
 rememberRecent(state.group);
 function subgroupName(value=state.subgroup){return t(value===1?'first':value===2?'second':'allGroups')}
 function groupPinned(key=state.group){return state.pinned.includes(key)}

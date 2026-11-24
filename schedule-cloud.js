@@ -118,7 +118,7 @@
   }
 
   function openEditor(index) {
-    if (!canEdit) return;
+    if (!canEdit || state.group===DATA.personalGroup) return;
     const row = matchingRows()[index];
     const sourceKey = row && keysByRow.get(row);
     if (!sourceKey) return;
@@ -207,7 +207,7 @@
     }
   }
 
-  window.bgauScheduleCloud = { isAdmin: () => canEdit, openEditor, renderEditor };
+  window.bgauScheduleCloud = { isAdmin: () => canEdit && state.group!==DATA.personalGroup, openEditor, renderEditor };
   client.auth.onAuthStateChange((_event, session) => {
     setTimeout(() => void updateRole(session), 0);
   });
