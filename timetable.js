@@ -142,6 +142,33 @@ function matchingRows(week=state.week,day=state.day,query=state.query,subgroup=s
  (needle?`${subject(row)} ${teacher(row)} ${DATA.subjects[row[3]]} ${DATA.teachers[row[5]]} ${room(row[4])} ${row[4]} ${DATA.labels[state.group]}`.toLocaleLowerCase('ru-RU').includes(needle):Number(row[0])===Number(day)))
  .sort((a,b)=>a[0]-b[0]||toMinutes(a[9])-toMinutes(b[9])||a[1]-b[1]||a[7]-b[7]);
 }
+const privateLayouts=new Map([["mint","Сине-мятная"],["paper","Бумажный планер"],["metro","Табло метро"],["studio","Студия"],["terminal","Терминал"],["magazine","Журнал"],["polar","Полярная"],["signal","Сигнал"],["grid","Мозаика"],["mono","Чёрно-белая"],["orbit","Орбита"]]);
+const privateLayoutKey=window.bgauPrivateLayoutKey;
+function applyPrivateLayout(id){
+ if(!privateLayoutKey || (id!=='standard' && !privateLayouts.has(id)))return;
+ save(privateLayoutKey,id);
+ if(id==='standard')delete document.documentElement.dataset.privateLayout;
+ else document.documentElement.dataset.privateLayout=id;
+}
+function privateLayoutOptions(){
+ if(!privateLayoutKey)return '';
+ const selected=document.documentElement.dataset.privateLayout||'standard';
+ const choices=[['standard',state.lang==='ru'?'Обычное оформление':'Standard layout'],...privateLayouts];
+ return '<div class="theme-control"><h3 class="theme-control-title">'+
+  (state.lang==='ru'?'Личные темы':'Personal layouts')+'</h3><div class="private-layout-list">'+
+  choices.map(([id,label])=>'<button class="choice" data-action="privateLayout" data-value="'+id+
+   '" aria-pressed="'+(selected===id)+'">'+esc(label)+'</button>').join('')+'</div></div>';
+}
+function renderPrivateDayLabels(){
+ if(document.documentElement.dataset.privateLayout!=='mint')return;
+ const format=new Intl.DateTimeFormat(LOCALES[state.lang],{weekday:'short',day:'numeric',month:'long',timeZone:'UTC'});
+ Array.from($('dayNav').children).forEach((button,index)=>{
+  const label=document.createElement('span');
+  label.textContent=format.format(dateOf(state.week,index+1));
+  label.className='private-day-label';
+  button.append(label);
+ });
+}
 function themeApply(){state.theme='graphite';document.documentElement.dataset.theme='graphite';applyAppearance()}
 function toast(message){const box=$('toast');box.textContent=message;box.classList.add('on');clearTimeout(toast.timer);toast.timer=setTimeout(()=>box.classList.remove('on'),2100)}
 function languageChoices(selected=''){
@@ -169,6 +196,7 @@ function render(animate=false){
  $('subgroups').innerHTML=[[0,'all'],[1,'firstShort'],[2,'secondShort']].map(([n,key])=>`<button data-action="subgroup" data-value="${n}" class="${state.subgroup===n?'on':''}" aria-label="${esc(t(n===1?'first':n===2?'second':'all'))}" aria-pressed="${state.subgroup===n}">${esc(t(key))}</button>`).join('');
  const realWeek=currentWeek(),realDay=today();
  $('dayNav').innerHTML=I18N[state.lang].shortDays.map((label,i)=>{const count=new Set(matchingRows(state.week,i+1,'').map(row=>row[1])).size,isToday=state.week===realWeek&&i+1===realDay;return `<button data-action="day" data-value="${i+1}" class="${state.day===i+1?'on':''} ${isToday?'is-today':''}" aria-pressed="${state.day===i+1}" ${isToday?'aria-current="date"':''} aria-label="${esc(I18N[state.lang].longDays[i])}, ${esc(t('dayClasses',{n:count}))}${isToday?', '+esc(t('today')):''}"><span>${esc(label)}</span><small>${dateOf(state.week,i+1).getUTCDate()}</small>${isToday?'<i class="today-beacon" aria-hidden="true"></i>':''}<span class="day-dots" aria-hidden="true">${'<i></i>'.repeat(count)}</span></button>`}).join('');
+ renderPrivateDayLabels();
  $('summaryTitle').textContent=state.query?t('search'):localeDate(dateOf(state.week,state.day));
  $('lessonSearch').placeholder=t('searchPlaceholder');$('lessonSearch').setAttribute('aria-label',t('searchPlaceholder'));
  $('footer').innerHTML=[['today','schedule','today'],['week','week','weekOverview'],['share','share','share'],['menu','menu','menu']].map(([action,icon,label])=>`<button class="${action==='today'&&state.week===realWeek&&state.day===Math.min(realDay,6)&&!state.query?'active':''}" data-action="${action}"><b>${uiIcon(icon)}</b><span>${esc(t(label))}</span></button>`).join('')+'<span class="credit">by csenchis</span>';
@@ -187,7 +215,8 @@ function renderStatus(){
  else if(rows.length)label=t('finished');
  if(!$('statusLabel'))$('status').innerHTML='<i class="dot"></i><div class="status-text"><b id="statusLabel"></b><span class="status-clock" id="statusClock"></span><div class="countdown-row" id="countdownRow"><strong id="statusCountdown"></strong><span id="statusCaption"></span></div><small id="statusSubject"></small><span class="status-progress" id="statusProgress"><i id="statusProgressValue"></i></span><span class="ufa-time" id="statusUfa"></span></div>';
  $('status').classList.toggle('live',!!live);$('status').classList.toggle('idle',!countdown);$('statusLabel').textContent=label;$('countdownRow').hidden=!countdown;
- $('statusClock').hidden=!!countdown;$('statusClock').textContent=String(c.hour).padStart(2,'0')+':'+String(c.minute).padStart(2,'0');
+ $('statusClock').hidden=!!countdown && document.documentElement.dataset.privateLayout!=='mint';$('statusClock').textContent=String(c.hour).padStart(2,'0')+':'+String(c.minute).padStart(2,'0');
+ if(document.documentElement.dataset.privateLayout==='mint')$('countdownRow').hidden=true;
  $('statusCountdown').textContent=countdown;$('statusCaption').textContent=caption;$('statusSubject').textContent=name;$('statusSubject').hidden=!name;
  $('statusProgress').hidden=!live;$('statusProgressValue').style.width=progress.toFixed(1)+'%';
  $('statusUfa').textContent=clockLabel()+' · '+String(c.hour).padStart(2,'0')+':'+String(c.minute).padStart(2,'0');
@@ -451,7 +480,7 @@ async function copyText(text){try{await navigator.clipboard.writeText(text)}catc
 function scheduleText(){const rows=matchingRows(),date=localeDate(dateOf(state.week,state.day));return `${t('app')} · ${DATA.labels[state.group]} · ${t('week',{n:state.week})} · ${date}\n`+(rows.length?rows.map(row=>`${t('pair',{n:row[1]})} ${row[9]}–${row[10]} · ${subject(row)}${row[7]?` · ${row[7]} ${t('sgShort')}`:''} · ${t('room')}: ${room(row[4])}`).join('\n'):t('noLessons'))}
 async function offlineSnapshot(){
  if(DATA.personalGroup)throw new Error('Personal timetable cannot be exported');
- const copy=document.documentElement.cloneNode(true);copy.querySelector('body').classList.remove('modal-open','animations-paused');
+ const copy=document.documentElement.cloneNode(true);delete copy.dataset.privateLayout;copy.querySelector('body').classList.remove('modal-open','animations-paused');
  copy.querySelector('#accountShortcut')?.remove();
  copy.querySelector('.daily-traffic')?.remove();
  copy.querySelectorAll('script[data-online-feature]').forEach(script=>script.remove());
@@ -505,6 +534,10 @@ document.addEventListener('click',async event=>{const target=event.target.closes
  case 'course':state.course=+value;renderGroupChoices();revealChoices();break;
  case 'selectGroup':selectGroup(value);break;
  case 'setLanguage':selectLanguage(value);break;case 'language':openModal('language');break;
+ case 'privateLayout':
+  applyPrivateLayout(value);render();renderAppearanceSettings();
+  $('modalBody').querySelector('[data-action="privateLayout"][aria-pressed=true]')?.focus({preventScroll:true});
+  break;
  case 'readyThemes':toggleReadyThemes();break;case 'applyReadyTheme':applyReadyTheme(value);break;case 'themes':openModal('themes');break;case 'resetAppearance':resetAppearance();break;
  case 'pinGroup':toggleGroupPin();break;
  case 'toggleFavorite':toggleGroupPin(value);break;
@@ -613,7 +646,7 @@ for(const [lang,[tomorrow,eveningReminder,reminderScope,noClassesTomorrow]] of O
 for(const [lang,[tomorrowNew,enableEveningReminder,openTomorrowClasses]] of Object.entries({"ru":["Новая функция","Включить вечернее напоминание","Открой расписание, чтобы посмотреть пары."],"en":["New feature","Turn on the evening reminder","Open the timetable to see your classes."],"es":["Nueva función","Activar el recordatorio","Abre el horario para ver las clases."],"fr":["Nouveauté","Activer le rappel du soir","Ouvrez l’emploi du temps pour voir les cours."],"pt":["Nova função","Ativar o lembrete","Abra o horário para ver as aulas."]})){
  Object.assign(I18N[lang],{tomorrowNew,enableEveningReminder,openTomorrowClasses});
 }
-const APP_RELEASE='2026-11-25.4';
+const APP_RELEASE='2026-11-25.5';
 const SCHEDULE_RELEASE='2026-11-24';
 const SUPPORT_LINKS={telegram:'https://t.me/csenchis',max:'https://max.ru/u/f9LHodD0cOLBig0ncSmZu-eTLwPD-Hm-RjLt9f2f7IFpYJJtNziGpqJPshc'};
 const jsonRead=(key,fallback)=>{try{return JSON.parse(read(key))??fallback}catch{return fallback}};
@@ -740,7 +773,7 @@ const THEME_SWATCHES={
 function renderAppearanceSettings(){
  const p=state.appearance,colors={...p,background:appearanceBackground(p)};$('modalTitle').textContent=t('themeSettings');
  const scale=(key,id,label,min,max,step,lo,hi)=>`<div><label class="appearance-label" for="${id}">${esc(t(label))}<output id="${key==='fontSize'?'fontSizeValue':key==='indicatorSaturation'?'indicatorSaturationValue':key+'Value'}" for="${id}">${p[key]}%</output></label><input id="${id}" class="appearance-range" data-appearance="${key}" type="range" min="${min}" max="${max}" step="${step}" value="${p[key]}"><div class="appearance-range-labels"><span>${lo}</span><span>${hi}</span></div></div>`;
- $('modalBody').innerHTML=`<div class="appearance-editor">${readyThemeMarkup()}
+ $('modalBody').innerHTML=`<div class="appearance-editor">${privateLayoutOptions()}${readyThemeMarkup()}
  <div class="theme-demo" id="appearanceLivePreview" role="group" aria-label="${esc(t('effectPreview'))}"><canvas id="effectPreview" aria-hidden="true"></canvas><div class="theme-demo-top"><span>${esc(t('effectPreview'))}</span><span id="effectPreviewCaption"></span></div><div class="theme-demo-calendar" aria-hidden="true">${I18N[state.lang].shortDays.slice(0,3).map((day,i)=>`<span class="${i===1?'on':''}">${esc(day)}</span>`).join('')}</div><div class="theme-sample"><span class="theme-sample-time">10:20<small>11:55</small></span><span class="theme-sample-copy"><small class="theme-sample-now">${esc(t('previewLive'))}</small><strong>${esc(t('previewSubject'))}</strong><small>${uiIcon('pin')}${esc(room('106/6'))}</small></span>${uiIcon('chevronRight')}</div><button class="theme-preview-pause" id="themePreviewPause" data-action="toggleBackgroundMotion" hidden></button></div>
  <div class="theme-tabbar" role="tablist" aria-label="${esc(t('themeSettings'))}">${[['view','appearanceView'],['colors','appearancePalette'],['effects','appearanceDecor']].map(([key,label])=>`<button class="theme-tab" id="appearanceTab-${key}" data-action="appearanceTab" data-value="${key}" role="tab" aria-controls="appearancePane-${key}" aria-selected="false" tabindex="-1">${esc(t(label))}</button>`).join('')}</div>
  <section class="theme-pane" id="appearancePane-view" role="tabpanel" aria-labelledby="appearanceTab-view">
@@ -1304,6 +1337,7 @@ if(new URLSearchParams(location.search).get('tomorrow')==='1'&&state.languageCho
 window.addEventListener('online',()=>checkNewVersion(true));
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkNewVersion()});
 
+if(privateLayoutKey)applyPrivateLayout(read(privateLayoutKey,'mint'));
 const brandImage=$('brandIcon');brandImage.addEventListener('load',()=>{brandImage.hidden=false;$('brandFallback').hidden=true});brandImage.addEventListener('error',()=>{brandImage.hidden=true;$('brandFallback').hidden=false});brandImage.src='./icon.png';
 render(true);
 if(!state.languageChosen){$('onboardLanguages').innerHTML=languageChoices();$('onboard').hidden=false;syncOverlays()}

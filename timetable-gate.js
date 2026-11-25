@@ -73,6 +73,7 @@
   }
 
   function concealWorkspace() {
+    delete document.documentElement.dataset.privateLayout;
     concealPersonal();
     const teacher = document.getElementById('teacherWorkspace');
     if (teacher) teacher.hidden = true;
@@ -156,6 +157,20 @@
           window.bgauInitialGroup=key;
         }
       }
+      const layoutAccess=await client.rpc('bgau_has_schedule_layout_access');
+      if(layoutAccess.data===true && activeUser===session.user.id){
+        const stylesheet=document.createElement('link');
+        stylesheet.rel='stylesheet';
+        stylesheet.href='./private-layouts.css?v=2026-11-25.5';
+        stylesheet.dataset.onlineFeature='';
+        const loaded=await new Promise(resolve=>{
+          stylesheet.onload=()=>resolve(true);
+          stylesheet.onerror=()=>resolve(false);
+          document.head.append(stylesheet);
+        });
+        if(loaded && activeUser===session.user.id)window.bgauPrivateLayoutKey='bgau_layout:'+session.user.id;
+      }
+      if(activeUser!==session.user.id)return;
       window.bgauTimetablePayload=data.schedule;
       await loadScript('./timetable.js');
       cloud.showDailyTraffic(document.querySelector('#appShell .daily-traffic'));
@@ -191,7 +206,7 @@
     if(activeUser&&(event==='SIGNED_OUT'||(session&&session.user.id!==activeUser))){activeUser=null;concealWorkspace();goToAccount()}
   });
   window.addEventListener('pagehide',concealWorkspace);
-  window.addEventListener('pageshow',event=>{if(event.persisted&&(personalLoaded||teacherMode))location.reload()});
+  window.addEventListener('pageshow',event=>{if(event.persisted&&(personalLoaded||teacherMode||window.bgauPrivateLayoutKey))location.reload()});
   function refreshAvatar(){
     if(activeUser && !document.hidden) void showOwnAvatar(document.querySelector(teacherMode?'#teacherWorkspace .account-shortcut':'#accountShortcut'),activeUser);
   }
