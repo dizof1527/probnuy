@@ -12,11 +12,11 @@
         document.documentElement.dataset.motion = 'off';
     } catch {}
   </script>
-  <link rel="stylesheet" href="./account.css?v=2026-11-25.2">
+  <link rel="stylesheet" href="./account.css?v=2026-11-25.3">
   <script defer src="./vendor/supabase-2.119.2.js"></script>
   <script defer src="./supabase-client.js"></script>
-  <script defer src="./account-language.js?v=2026-11-25.2"></script>
-  <script defer src="./account.js?v=2026-11-25.2"></script>
+  <script defer src="./account-language.js?v=2026-11-25.3"></script>
+  <script defer src="./account.js?v=2026-11-25.3"></script>
 </head>
 <body>
   <header class="site-header">
@@ -59,6 +59,7 @@
               <label id="emailLabel"><span data-i18n="email">Электронная почта</span>
                 <input id="authEmail" name="email" type="email" maxlength="254" autocomplete="email" required>
               </label>
+              <label id="cardNumberLabel" hidden><span data-i18n="registrationNumber">Номер регистрации</span><input id="recoveryCardNumber" inputmode="numeric" pattern="[0-9]+" maxlength="18" disabled></label>
               <label id="passwordLabel"><span data-i18n="password">Пароль</span>
                 <input id="authPassword" name="password" type="password" autocomplete="current-password" aria-describedby="passwordHint" required>
                 <small id="passwordHint" data-i18n="passwordHint" hidden>Не менее 8 символов.</small>
@@ -78,7 +79,7 @@
       </section>
       <section id="profile" hidden>
         <div class="profile-head">
-          <div><p class="overline" data-i18n="account">Аккаунт</p><h1 id="profileRole"></h1><p id="profileEmail"></p></div>
+          <div><p class="overline" data-i18n="account">Аккаунт</p><h1 id="profileRole"></h1><p id="profileEmail"></p><div id="ownCard"></div></div>
           <button id="signOut" type="button" data-i18n="signOut">Выйти</button>
         </div>
       </section>
@@ -157,7 +158,7 @@
     <label data-identity><span data-i18n="lastName">Фамилия</span><input name="last_name" autocomplete="family-name" maxlength="80" required></label>
     <label data-identity><span data-i18n="firstName">Имя</span><input name="first_name" autocomplete="given-name" maxlength="80" required></label>
     <label class="wide" data-identity><span data-i18n="patronymic">Отчество, если есть</span><input name="patronymic" autocomplete="additional-name" maxlength="80"></label>
-    <label><span data-i18n="course">Курс</span><select name="course" required></select></label>
+    <div class="course-picker"><span data-i18n="course">Курс</span><select name="course" aria-label="Курс" hidden></select><div class="course-options"></div></div>
     <label><span data-i18n="group">Группа</span><select name="group_key" required></select></label>
     <label class="wide"><span data-i18n="subgroup">Подгруппа</span><select name="subgroup" required></select></label>
     <label class="wide"><span data-i18n="nickname">Псевдоним для топа, по желанию</span>

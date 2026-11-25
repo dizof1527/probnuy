@@ -63,6 +63,8 @@
     forgot: ["Забыли пароль?","Forgot your password?","Mot de passe oublié ?","¿Olvidaste tu contraseña?","Esqueceste-te da palavra-passe?"],
     backToLogin: ["Вернуться ко входу","Back to sign in","Revenir à la connexion","Volver al inicio de sesión","Voltar ao início de sessão"],
     profileFields: ["Анкета","Profile details","Informations du profil","Datos del perfil","Dados do perfil"],
+    registrationNumber: ["Номер регистрации","Registration number","Numéro d’inscription","Número de registro","Número de registo"],
+    wrongCardNumber: ["Проверьте номер на обороте карты аккаунта.","Check the number on your account card.","Vérifiez le numéro de votre carte.","Comprueba el número de tu tarjeta.","Verifique o número do cartão."],
     nameHint: ["Введите фамилию, имя и отчество, если оно есть, по-русски, кириллицей.","Enter your last name, first name and patronymic, if applicable, in Russian using Cyrillic.","Saisissez votre nom, votre prénom et votre patronyme, si vous en avez un, en russe et en alphabet cyrillique.","Escribe tus apellidos, nombre y patronímico, si lo tienes, en ruso y con alfabeto cirílico.","Escreve o apelido, o nome e o patronímico, se aplicável, em russo e em alfabeto cirílico."],
     lastName: ["Фамилия","Last name","Nom de famille","Apellidos","Apelido"],
     firstName: ["Имя","First name","Prénom","Nombre","Nome"],

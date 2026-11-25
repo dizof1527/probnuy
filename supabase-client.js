@@ -13,11 +13,17 @@
     return data?.role || 'student';
   }
 
+  let present=false;
+  function heartbeat(){if(present && !document.hidden)void client.rpc('bgau_heartbeat').then(()=>{});}
+  setInterval(heartbeat,45000);
+  document.addEventListener('visibilitychange',heartbeat);
   let visitTimer;
   client.auth.onAuthStateChange((event, session) => {
     if (!['INITIAL_SESSION','SIGNED_IN','SIGNED_OUT'].includes(event)) return;
+    present=!!session;
     clearTimeout(visitTimer);
     if (session) visitTimer=setTimeout(async () => {
+      heartbeat();
       const {error}=await client.rpc('bgau_record_site_visit');
       if (!error) window.dispatchEvent(new Event('bgau-visit-recorded'));
     },0);

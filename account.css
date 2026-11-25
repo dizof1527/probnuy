@@ -338,3 +338,17 @@ html[data-motion=off] dialog, html[data-motion=off] dialog::backdrop { animation
     box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 20%,transparent);
   }
 }
+
+#accounts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:16px;align-items:start}
+#accounts .user{display:block;border:0;padding:0}
+.member-info{padding:12px;overflow-wrap:anywhere}.member-info .buttons{flex-wrap:wrap}
+.member-card{width:min(100%,340px);height:156px;position:relative;border:0;padding:0;background:transparent;perspective:800px;text-align:left}
+.card-front,.card-back{box-sizing:border-box;position:absolute;inset:0;padding:18px;border-radius:18px;display:grid;align-content:center;gap:5px;color:#f1fbf6;border:1px solid #759789;background:linear-gradient(120deg,#15362f,#275d4e 65%,#38665e);backface-visibility:hidden}
+.card-back{transform:rotateY(180deg);background:#1c3c36}.card-back strong{font:600 1.4rem monospace;letter-spacing:.13em}
+.member-card[aria-expanded=true] .card-front{transform:rotateY(-180deg)}.member-card[aria-expanded=true] .card-back{transform:rotateY(0)}
+.card-mini,.card-mini img{height:32px;width:32px;border-radius:50%;object-fit:cover}.card-mini{display:grid;place-items:center;background:#527b6f}
+.course-options{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.course-options [aria-pressed=true]{background:var(--accent);color:var(--on-accent)}
+.name-hint{font-weight:650;color:var(--ink)}
+@media(prefers-reduced-motion:no-preference){html:not([data-motion=off]) :is(.card-front,.card-back){transition:transform .48s cubic-bezier(.22,.76,.25,1)}
+@media(hover:hover){html:not([data-motion=off]) .course-options button:hover{animation:course-wiggle .32s ease-in-out}}}
+@keyframes course-wiggle{25%{transform:rotate(-3deg)}65%{transform:rotate(2deg)}}

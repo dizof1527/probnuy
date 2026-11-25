@@ -86,6 +86,13 @@
     const hint = fields.querySelector('.name-hint');
     hint.id = id + '-name-hint';
     ['last_name','first_name','patronymic'].forEach(name => field(name).setAttribute('aria-describedby', hint.id));
+    if(id==='signupFields'){
+      for(const key of ['first_name','last_name','patronymic']){
+        const input=field(key);
+        input.pattern='[А-Яа-яЁё]+(?:[ ’\\x27\\x2d][А-Яа-яЁё]+)*';
+        input.title=t('nameHint');
+      }
+    }
     let catalog=[];
     function populate(select,values,placeholder,selected='') {
       select.replaceChildren(new Option(placeholder,''));
@@ -109,6 +116,13 @@
     function populateCourses(selected) {
       const courses=[...new Set(catalog.map(item=>item.course))].map(n=>[n,t('courseOption',{n})]);
       populate(course,courses,t('chooseCourse'),selected);
+      const options=fields.querySelector('.course-options');
+      options.replaceChildren(...courses.map(([n,label])=>{
+        const button=document.createElement('button');button.type='button';button.textContent=label;
+        button.setAttribute('aria-pressed',String(course.value===String(n)));
+        button.onclick=()=>{course.value=String(n);populateCourses(n);populateGroups();};
+        return button;
+      }));
     }
     course.addEventListener('change',()=>populateGroups());
     group.addEventListener('change',()=>populateSubgroups());
@@ -176,6 +190,9 @@
     el('emailLabel').hidden = recovering;
     el('authEmail').required = !recovering;
     el('authEmail').setCustomValidity('');
+    el('cardNumberLabel').hidden=!recovering;
+    el('recoveryCardNumber').disabled=!recovering;
+    el('recoveryCardNumber').required=recovering;
     el('passwordLabel').hidden = reset;
     el('authPassword').required = !reset;
     el('authPassword').setCustomValidity('');
@@ -236,6 +253,7 @@
     actor = session?.user || null;
     role = '';
     signedInProfile = null;
+    el('ownCard').replaceChildren();
     el('accounts').replaceChildren();
     el('paging').hidden = true;
     el('adminPanel').hidden = true;
@@ -270,6 +288,16 @@
       role=account.role;
       signedInProfile = account;
       showProfile(account);
+      void client.rpc('bgau_member_cards',{ids:[actor.id]}).then(({data})=>{
+        if(request!==generation || !data?.[0])return;
+        const p=account.profile||{};
+        void groups().then(catalog=>{
+          if(request!==generation)return;
+          const group=catalog.find(g=>g.group_key===p.group_key);
+          el('ownCard').replaceChildren(memberCard({...data[0],...p,group_label:group?.label,course:group?.course,has_avatar:!!account.profile},true));
+          if(data[0].curator_group && role==='student')el('profileRole').textContent='Куратор';
+        });
+      });
       if(account.banned){notify('banNotice',true);return}
       if(role==='teacher'){
         if(nextSchedule){location.replace(scheduleUrl);return}
@@ -335,7 +363,11 @@
       const { data, error } = await client.rpc('bgau_list_members', { p_search: search, p_offset: offset });
       if (error) throw error;
       if (actorVersion !== generation || request !== listing) return;
-      for (const account of data.slice(0, pageSize)) list.append(accountRow(account));
+      const page=data.slice(0,pageSize);
+      const cards=await client.rpc('bgau_member_cards',{ids:page.map(a=>a.user_id)});
+      if(cards.error)throw cards.error;
+      if(actorVersion!==generation || request!==listing)return;
+      for(const account of page)list.append(accountRow({...account,...cards.data.find(c=>c.user_id===account.user_id)}));
       message.textContent = data.length ? '' : t('adminEmpty');
       el('prevPage').disabled = offset === 0;
       el('nextPage').disabled = data.length <= pageSize;
@@ -344,6 +376,35 @@
       if (actorVersion === generation && request === listing) message.textContent = t('adminError');
     }
   }
+
+  function memberCard(account,own=false){
+    const button=document.createElement('button');button.type='button';button.className='member-card';button.setAttribute('aria-expanded','false');
+    const front=document.createElement('span'),back=document.createElement('span');
+    front.className='card-front';back.className='card-back';
+    const label=document.createElement('strong');label.textContent=account.group_label||t('account');
+    const course=document.createElement('small');course.textContent=account.course?t('courseOption',{n:account.course}):'';
+    const photo=document.createElement('span');photo.className='card-mini';photo.textContent=(account.first_name||'●').slice(0,1);
+    if(account.has_avatar)void getAvatar(own?null:account.user_id).then(src=>{
+      if(src){const img=new Image();img.alt='';img.src=src;photo.replaceChildren(img)}
+    }).catch(()=>{});
+    const presence=document.createElement('small');presence.className='presence';presence.dataset.user=account.user_id;
+    presence.textContent=account.online?'● В сети':'○ Не в сети';
+    front.append(photo,label,course,presence);
+    const number=document.createElement('strong');number.textContent='№ '+String(account.member_no).padStart(6,'0');
+    back.append('Номер регистрации',number);back.setAttribute('aria-hidden','true');
+    button.append(front,back);button.onclick=()=>{
+      const open=button.getAttribute('aria-expanded')!=='true';
+      button.setAttribute('aria-expanded',String(open));front.setAttribute('aria-hidden',String(open));back.setAttribute('aria-hidden',String(!open));
+      const info=button.parentElement.querySelector('.member-info');if(info)info.hidden=!open;
+    };return button;
+  }
+
+  setInterval(async()=>{
+    if(document.hidden || !actor)return;
+    const lamps=[...document.querySelectorAll('.presence')];if(!lamps.length)return;
+    const {data}=await client.rpc('bgau_member_cards',{ids:lamps.map(l=>l.dataset.user)});
+    if(data)for(const lamp of lamps){const row=data.find(c=>c.user_id===lamp.dataset.user);if(row)lamp.textContent=row.online?'● В сети':'○ Не в сети';}
+  },45000);
 
   function accountRow(account) {
     const item = document.createElement('div');
@@ -364,10 +425,11 @@
     const activity=document.createElement('p');
     activity.textContent=t('visitStats',{today:account.today_visits,total:account.total_visits});
     details.append(activity);
-    item.append(details);
+    const info=document.createElement('div');info.className='member-info';info.hidden=true;
+    item.append(memberCard(account),info);info.append(details);
     const actions=document.createElement('div');
     actions.className='buttons';
-    item.append(actions);
+    info.append(actions);
     if(account.has_avatar){
       const show=document.createElement('button');
       show.type='button';show.textContent=t('showAvatar');
@@ -382,6 +444,22 @@
         }catch{notify('memberAvatarError',true)}finally{show.disabled=false}
       });
       actions.append(show);
+    }
+    if(account.role==='student'){
+      if(account.curator_group)description.textContent='Куратор';
+      const assign=document.createElement('button');assign.type='button';assign.textContent=account.curator_group?'Группа куратора':'Назначить куратором';
+      assign.onclick=async()=>{
+        assign.disabled=true;
+        try{
+          const catalog=await groups(),select=document.createElement('select');
+          select.setAttribute('aria-label','Группа куратора');select.add(new Option('Без статуса куратора',''));
+          for(const g of catalog)select.add(new Option(g.label,g.group_key));select.value=account.curator_group||'';
+          const confirm=document.createElement('button');confirm.type='button';confirm.textContent='Сохранить группу';
+          confirm.onclick=async()=>{confirm.disabled=true;const {error}=await client.rpc('bgau_set_curator',{target:account.user_id,group_id:select.value||null});
+            if(error){notify('roleChangeError',true);confirm.disabled=false;}else await loadAccounts();};
+          assign.replaceWith(select,confirm);
+        }catch{assign.disabled=false;notify('catalogError',true)}
+      };actions.append(assign);
     }
     if (account.role === 'admin') return item;
 
@@ -656,7 +734,8 @@
   for (const form of [el('authForm'), el('profileForm')]) {
     form.addEventListener('invalid', event => {
       const input = event.target;
-      if (input.validity.valueMissing) input.setCustomValidity(t('requiredField'));
+      if(input.validity.patternMismatch && ['first_name','last_name','patronymic'].includes(input.name)) input.setCustomValidity(t('nameHint'));
+      else if (input.validity.valueMissing) input.setCustomValidity(t('requiredField'));
       else if (input.validity.typeMismatch) input.setCustomValidity(t('invalidEmail'));
       else if (input.validity.tooShort) input.setCustomValidity(t('minimumLength',{n:input.minLength}));
     }, true);
@@ -693,7 +772,16 @@
       if (action === 'signup') response = await client.auth.signUp({ email, password, options: { emailRedirectTo: redirectTo, data:{bgau_profile:signup.payload()} } });
       if (action === 'login') response = await client.auth.signInWithPassword({ email, password });
       if (action === 'reset') response = await client.auth.resetPasswordForEmail(email, { redirectTo });
-      if (action === 'update') response = await client.auth.updateUser({ password });
+      if(action==='update'){
+        const {data:{user},error:sessionError}=await client.auth.getUser();
+        if(sessionError || !user)throw sessionError||new Error('Recovery session required');
+        const {data,error}=await client.rpc('bgau_member_cards',{ids:[user.id]});
+        if(error)throw error;
+        if(!data?.length || Number(el('recoveryCardNumber').value)!==Number(data[0].member_no)){
+          notify('wrongCardNumber',true);return;
+        }
+        response=await client.auth.updateUser({password});
+      }
       if (response.error) throw response.error;
       el('authPassword').value = '';
       if (action === 'signup') {

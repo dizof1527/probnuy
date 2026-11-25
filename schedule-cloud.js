@@ -107,18 +107,28 @@
     } catch { /* Keep the most recent available public timetable. */ }
   }
 
+  let curatorGroup=null;
+  function mayEdit(group){
+    return group!==DATA.personalGroup && (canEdit || (!!group && group===curatorGroup));
+  }
   async function updateRole(session) {
     const request = ++roleCounter;
     let next = false;
     try { next = !!session && (await readRole(session.user.id)) === 'admin'; } catch { /* No role grants on a failed read. */ }
-    if (request !== roleCounter || next === canEdit) return;
+    let assigned=null;
+    if(session && !next){
+      const {data}=await client.rpc('bgau_member_cards',{ids:[session.user.id]});
+      assigned=data?.[0]?.curator_group||null;
+    }
+    if (request !== roleCounter || (next===canEdit && assigned===curatorGroup)) return;
+    curatorGroup=assigned;
     canEdit = next;
     renderCards();
-    if (!canEdit && state.modal === 'editLesson') closeModal();
+    if (!mayEdit(editor?.group) && state.modal === 'editLesson') closeModal();
   }
 
   function openEditor(index) {
-    if (!canEdit || state.group===DATA.personalGroup) return;
+    if (!mayEdit(state.group)) return;
     const row = matchingRows()[index];
     const sourceKey = row && keysByRow.get(row);
     if (!sourceKey) return;
@@ -131,7 +141,7 @@
   }
 
   function renderEditor() {
-    if (!canEdit || !editor) return;
+    if (!editor || !mayEdit(editor.group)) return;
     const { row, sourceKey, group, week } = editor;
     const currentEdit = edits.has(identity({ group_key: group, source_key: sourceKey, week }));
     $('modalTitle').textContent = 'Редактирование пары';
@@ -160,7 +170,7 @@
   }
 
   async function submitEdit(form, undo = false) {
-    if (!editor || !canEdit || saving) return;
+    if (!editor || !mayEdit(editor.group) || saving) return;
     const { sourceKey, group, week } = editor;
     const key = { group_key: group, source_key: sourceKey, week };
     const input = new FormData(form);
@@ -207,7 +217,7 @@
     }
   }
 
-  window.bgauScheduleCloud = { isAdmin: () => canEdit && state.group!==DATA.personalGroup, openEditor, renderEditor };
+  window.bgauScheduleCloud = { isAdmin: () => mayEdit(state.group), openEditor, renderEditor };
   client.auth.onAuthStateChange((_event, session) => {
     setTimeout(() => void updateRole(session), 0);
   });
