@@ -230,6 +230,7 @@ function closeModal(){
  $('modal').classList.add('is-closing');modalCloseTimer=setTimeout(finish,240);
 }
 function renderModal(){if(!state.modal)return;const body=$('modalBody'),title=$('modalTitle');$('modal').classList.toggle('teacher-schedule-modal',state.modal==='teacherSchedule');$('modal').classList.toggle('appearance-modal',['themes','accessibility'].includes(state.modal));$('appearanceEditorFooter')?.remove();
+ if(state.modal==='tomorrow'){renderTomorrow();return}
  if(state.modal==='editLesson'){window.bgauScheduleCloud?.renderEditor();return}
  if(state.modal==='teacherSchedule'){renderTeacherSchedule();return}
  if(state.modal==='freshness'){renderFreshness();return}if(state.modal==='report'){renderReport();return}if(state.modal==='support'){renderSupport();return}if(state.modal==='accessibility'){renderAccessibility();return}if(state.modal==='updates'){renderUpdates();return}
@@ -525,6 +526,8 @@ document.addEventListener('click',async event=>{const target=event.target.closes
  case 'nextTeachingDay':nextTeachingDay();break;
  case 'copyLesson':{const row=matchingRows()[Number(target.dataset.index)];if(row)await copyText([DATA.labels[state.group],localeDate(dateOf(state.week,row[0])),row[9]+'–'+row[10],subject(row),room(row[4]),teacher(row)].filter(Boolean).join(' · '));break}
  case 'editLesson':window.bgauScheduleCloud?.openEditor(Number(target.dataset.index));break;
+ case 'tomorrow':openModal('tomorrow');break;
+ case 'eveningReminder':await toggleEveningReminder();break;
  case 'notifications':await toggleNotifications();break;
  case 'dismissUpdate':state.updateDismissed=true;if(state.changeDate)save('bash_changes_dismissed_v1',state.changeDate);state.newVersion=false;renderUpdateBanner();break;
  case 'reloadVersion':reloadVersion();break;
@@ -567,7 +570,41 @@ document.addEventListener('keydown',event=>{
  if(event.key==='Escape'&&overlay===$('modal')){event.preventDefault();closeModal();return}
  if(event.key==='Tab'){const items=[...overlay.querySelectorAll('button:not([disabled]),input,select,textarea,a[href],[tabindex="0"]')].filter(el=>!el.hidden&&el.getClientRects().length);if(!items.length)return;const first=items[0],last=items[items.length-1];if(event.shiftKey&&(document.activeElement===first||!items.includes(document.activeElement))){event.preventDefault();last.focus()}else if(!event.shiftKey&&(document.activeElement===last||!items.includes(document.activeElement))){event.preventDefault();first.focus()}}
 });
-const APP_RELEASE='2026-11-24.11';
+for(const [lang,[tomorrow,eveningReminder,reminderScope,noClassesTomorrow]] of Object.entries({
+ "ru": [
+  "Завтра",
+  "Вечернее напоминание",
+  "С 19:00 по времени расписания, пока сайт открыт.",
+  "Завтра пар нет"
+ ],
+ "en": [
+  "Tomorrow",
+  "Evening reminder",
+  "From 7 pm in the timetable’s time zone while the site is open.",
+  "No classes tomorrow"
+ ],
+ "es": [
+  "Mañana",
+  "Recordatorio de la tarde",
+  "Desde las 19:00, hora local del horario, con el sitio abierto.",
+  "Mañana no hay clases"
+ ],
+ "fr": [
+  "Demain",
+  "Rappel du soir",
+  "Dès 19 h, heure locale de l’emploi du temps, lorsque le site est ouvert.",
+  "Pas de cours demain"
+ ],
+ "pt": [
+  "Amanhã",
+  "Lembrete da noite",
+  "A partir das 19:00, no fuso do horário, com o site aberto.",
+  "Amanhã não há aulas"
+ ]
+})){
+ Object.assign(I18N[lang],{tomorrow,eveningReminder,reminderScope,noClassesTomorrow});
+}
+const APP_RELEASE='2026-11-25.1';
 const SCHEDULE_RELEASE='2026-11-24';
 const SUPPORT_LINKS={telegram:'https://t.me/csenchis',max:'https://max.ru/u/f9LHodD0cOLBig0ncSmZu-eTLwPD-Hm-RjLt9f2f7IFpYJJtNziGpqJPshc'};
 const jsonRead=(key,fallback)=>{try{return JSON.parse(read(key))??fallback}catch{return fallback}};
@@ -1049,6 +1086,68 @@ function renderUpdateBanner(){
  $('updateDetails').innerHTML=uiIcon('bells')+`<span>${esc(t(state.newVersion?'newVersionReady':'scheduleChanged',{n:items.length,group:DATA.labels[state.group]}))}</span>`;
  $('dismissUpdate').setAttribute('aria-label',t('closed'));
 }
+function tomorrowSchedule(clock=ufaClock()){
+ const date=new Date(Date.UTC(clock.year,clock.month-1,clock.day+1));
+ const week=Math.floor((date.getTime()-BASE_UTC)/604800000)+1;
+ const day=date.getUTCDay();
+ return {date,rows:day && week>=1 && week<=MAX_WEEK ? matchingRows(week,day,'') : []};
+}
+function tomorrowLesson(row){
+ return [row[9]+'–'+row[10],subject(row),room(row[4]),row[7]?subgroupName(Number(row[7])):''].filter(Boolean).join(' · ');
+}
+function renderTomorrow(){
+ const {date,rows}=tomorrowSchedule();
+ const enabled=read('bash_evening_reminder')==='1' && window.Notification?.permission==='granted';
+ $('modalTitle').textContent=t('tomorrow');
+ const summary=rows.map(row=>'<article class="change-item"><strong>'+esc(tomorrowLesson(row))+'</strong></article>').join('');
+ $('modalBody').innerHTML='<p class="muted">'+esc(localeDate(date))+' · '+esc(DATA.labels[state.group])+'</p>'+
+  (summary||'<p>'+esc(t('noClassesTomorrow'))+'</p>')+
+  '<button class="menu-item" data-action="eveningReminder" aria-pressed="'+enabled+'"><span>'+esc(t('eveningReminder'))+
+  '<small>'+esc(t(enabled?'notificationsOn':'notificationsOff'))+'</small></span>'+uiIcon('bells')+'</button>'+
+  '<p class="muted">'+esc(t('reminderScope'))+'</p>';
+}
+async function toggleEveningReminder(){
+ if(!window.isSecureContext || !window.Notification || !('serviceWorker' in navigator)){
+  toast(t('notificationsUnavailable'));return;
+ }
+ if(read('bash_evening_reminder')==='1' && Notification.permission==='granted'){
+  save('bash_evening_reminder','0');
+ }else{
+  try{
+   if(await Notification.requestPermission()!=='granted'){toast(t('notificationsDenied'));return}
+   save('bash_evening_reminder','1');
+   void deliverEveningReminder(ufaClock());
+  }catch{toast(t('notificationsUnavailable'));return}
+ }
+ if(state.modal==='tomorrow'){
+  renderTomorrow();
+  $('modalBody').querySelector('[data-action="eveningReminder"]').focus({preventScroll:true});
+ }
+}
+let reminderPending=false;
+async function deliverEveningReminder(clock){
+ if(clock.hour<19 || reminderPending || read('bash_evening_reminder')!=='1' ||
+    window.Notification?.permission!=='granted' || !('serviceWorker' in navigator))return;
+ const group=state.group;
+ const {date,rows}=tomorrowSchedule(clock);
+ const dayKey=date.toISOString().slice(0,10);
+ if(read('bash_evening_sent')===dayKey)return;
+ reminderPending=true;
+ try{
+  const registration=await navigator.serviceWorker.getRegistration();
+  if(!registration?.active || state.group!==group || read('bash_evening_reminder')!=='1' || read('bash_evening_sent')===dayKey)return;
+  let body=localeDate(date);
+  if(!inPersonalGroup()){
+   body=rows.length?rows.slice(0,2).map(tomorrowLesson).join('\n'):t('noClassesTomorrow');
+   if(rows.length>2)body+='\n'+t('lessonsCount',{n:rows.length});
+  }
+  await registration.showNotification(t('tomorrow'),{
+   body,icon:'./icon-192.png',tag:'bashgau-tomorrow-'+dayKey,data:{tomorrow:true}
+  });
+  save('bash_evening_sent',dayKey);
+ }catch{}finally{reminderPending=false}
+}
+
 function renderUpdates(){
  $('modalTitle').textContent=t('updates');const items=relevantChanges();
  const enabled=state.notifications&&'Notification' in window&&Notification.permission==='granted';
@@ -1187,8 +1286,12 @@ function compareRelease(a,b){
 const initialChanges=inspectScheduleChanges();
 initializeGestures();
 setInterval(checkNewVersion,300000);
-if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',event=>{if(event.data?.type==='OPEN_SCHEDULE_CHANGES')openModal('updates')});
+if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',event=>{if(event.data?.type==='OPEN_SCHEDULE_CHANGES')openModal('updates');if(event.data?.type==='OPEN_TOMORROW')openModal('tomorrow')});
 if(new URLSearchParams(location.search).get('changes')==='1'&&state.languageChosen){setTimeout(()=>openModal('updates'),350);history.replaceState(null,'',location.pathname+location.hash)}
+if(new URLSearchParams(location.search).get('tomorrow')==='1'&&state.languageChosen){
+ setTimeout(()=>openModal('tomorrow'),350);
+ const url=new URL(location.href);url.searchParams.delete('tomorrow');history.replaceState(null,'',url);
+}
 window.addEventListener('online',()=>checkNewVersion(true));
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkNewVersion()});
 
@@ -1202,7 +1305,7 @@ function tick(){
  if(document.hidden)return;
  renderStatus();refreshTeacherLive();syncJumpToCurrent();const c=ufaClock(),calendar=`${c.year}-${c.month}-${c.day}`,stamp=`${calendar} ${c.hour}:${c.minute}`;
  if(lastCalendarDay&&calendar!==lastCalendarDay){if(state.week===trackedWeek&&state.day===Math.min(trackedDay,6)){state.week=currentWeek();state.day=Math.min(today(),6)}trackedWeek=currentWeek();trackedDay=today();render()}
- if(stamp!==lastScheduleMinute){lastScheduleMinute=stamp;if(document.activeElement?.id!=='noteText')renderCards()}
+ if(stamp!==lastScheduleMinute){lastScheduleMinute=stamp;void deliverEveningReminder(c);if(document.activeElement?.id!=='noteText')renderCards()}
  lastCalendarDay=calendar;
 }
 setInterval(tick,1000);document.addEventListener('visibilitychange',()=>{document.body.classList.toggle('animations-paused',document.hidden);if(!document.hidden){tick();refreshOfflineHint()}});

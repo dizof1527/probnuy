@@ -1,7 +1,7 @@
 /* Offline support for GitHub Pages, including repositories in a subdirectory. */
 const ROOT=new URL('./',self.location.href);
 const PREFIX='bashgau:'+ROOT.pathname+':';
-const RELEASE='2026-11-24.11';
+const RELEASE='2026-11-25.1';
 const CACHE=PREFIX+RELEASE;
 const APP=new URL('index.html',ROOT).href;
 const ASSETS=['manifest.webmanifest','icon.png','icon-192.png','account.html','account-cover.jpg','teacher.html','personal.html','supabase-client.js',
@@ -40,9 +40,10 @@ self.addEventListener('fetch',event=>{
 self.addEventListener('notificationclick',event=>{
  event.notification.close();
  event.waitUntil((async()=>{
-  const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});
+  const tomorrow=event.notification.data?.tomorrow;
+ const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});
   const existing=windows.find(client=>new URL(client.url).origin===ROOT.origin&&new URL(client.url).pathname.startsWith(ROOT.pathname));
-  if(existing){await existing.focus();existing.postMessage({type:'OPEN_SCHEDULE_CHANGES'});return}
-  await self.clients.openWindow(new URL('./?changes=1',ROOT).href);
+  if(existing&&(!tomorrow||['','index.html'].some(path=>new URL(existing.url).pathname===new URL(path,ROOT).pathname))){await existing.focus();existing.postMessage({type:tomorrow?'OPEN_TOMORROW':'OPEN_SCHEDULE_CHANGES'});return}
+  await self.clients.openWindow(new URL(tomorrow?'./?tomorrow=1':'./?changes=1',ROOT).href);
  })());
 });
