@@ -613,7 +613,7 @@ for(const [lang,[tomorrow,eveningReminder,reminderScope,noClassesTomorrow]] of O
 for(const [lang,[tomorrowNew,enableEveningReminder,openTomorrowClasses]] of Object.entries({"ru":["Новая функция","Включить вечернее напоминание","Открой расписание, чтобы посмотреть пары."],"en":["New feature","Turn on the evening reminder","Open the timetable to see your classes."],"es":["Nueva función","Activar el recordatorio","Abre el horario para ver las clases."],"fr":["Nouveauté","Activer le rappel du soir","Ouvrez l’emploi du temps pour voir les cours."],"pt":["Nova função","Ativar o lembrete","Abra o horário para ver as aulas."]})){
  Object.assign(I18N[lang],{tomorrowNew,enableEveningReminder,openTomorrowClasses});
 }
-const APP_RELEASE='2026-11-25.3';
+const APP_RELEASE='2026-11-25.4';
 const SCHEDULE_RELEASE='2026-11-24';
 const SUPPORT_LINKS={telegram:'https://t.me/csenchis',max:'https://max.ru/u/f9LHodD0cOLBig0ncSmZu-eTLwPD-Hm-RjLt9f2f7IFpYJJtNziGpqJPshc'};
 const jsonRead=(key,fallback)=>{try{return JSON.parse(read(key))??fallback}catch{return fallback}};

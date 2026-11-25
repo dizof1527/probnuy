@@ -389,9 +389,19 @@
     }).catch(()=>{});
     const presence=document.createElement('small');presence.className='presence';presence.dataset.user=account.user_id;
     presence.textContent=account.online?'● В сети':'○ Не в сети';
-    front.append(photo,label,course,presence);
-    const number=document.createElement('strong');number.textContent='№ '+String(account.member_no).padStart(6,'0');
-    back.append('Номер регистрации',number);back.setAttribute('aria-hidden','true');
+    const name=document.createElement('strong');
+    name.className='card-name';
+    name.textContent=[account.first_name,account.last_name].filter(Boolean).join(' ');
+    front.append(photo);
+    if(name.textContent)front.append(name);
+    front.append(label,course,presence);
+    for(const [key,value] of [['registrationNumber',account.member_no],['individualNumber',account.account_no]]){
+      const caption=document.createElement('small');caption.textContent=t(key);
+      const number=document.createElement('strong');
+      number.textContent=value==null?'—':'№ '+String(value).padStart(key==='registrationNumber'?6:9,'0');
+      back.append(caption,number);
+    }
+    back.setAttribute('aria-hidden','true');
     button.append(front,back);button.onclick=()=>{
       const open=button.getAttribute('aria-expanded')!=='true';
       button.setAttribute('aria-expanded',String(open));front.setAttribute('aria-hidden',String(open));back.setAttribute('aria-hidden',String(!open));

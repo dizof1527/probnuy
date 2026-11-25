@@ -1,7 +1,7 @@
 /* Offline support for GitHub Pages, including repositories in a subdirectory. */
 const ROOT=new URL('./',self.location.href);
 const PREFIX='bashgau:'+ROOT.pathname+':';
-const RELEASE='2026-11-25.3';
+const RELEASE='2026-11-25.4';
 const CACHE=PREFIX+RELEASE;
 const APP=new URL('index.html',ROOT).href;
 const ASSETS=['manifest.webmanifest','icon.png','icon-192.png','account.html','account-cover.jpg','teacher.html','personal.html','supabase-client.js',

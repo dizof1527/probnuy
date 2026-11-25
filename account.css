@@ -352,3 +352,7 @@ html[data-motion=off] dialog, html[data-motion=off] dialog::backdrop { animation
 @media(prefers-reduced-motion:no-preference){html:not([data-motion=off]) :is(.card-front,.card-back){transition:transform .48s cubic-bezier(.22,.76,.25,1)}
 @media(hover:hover){html:not([data-motion=off]) .course-options button:hover{animation:course-wiggle .32s ease-in-out}}}
 @keyframes course-wiggle{25%{transform:rotate(-3deg)}65%{transform:rotate(2deg)}}
+
+.member-card{height:190px}
+.card-name{line-height:1.25;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.card-back strong+small{margin-top:8px}
