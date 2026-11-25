@@ -526,6 +526,12 @@ document.addEventListener('click',async event=>{const target=event.target.closes
  case 'nextTeachingDay':nextTeachingDay();break;
  case 'copyLesson':{const row=matchingRows()[Number(target.dataset.index)];if(row)await copyText([DATA.labels[state.group],localeDate(dateOf(state.week,row[0])),row[9]+'–'+row[10],subject(row),room(row[4]),teacher(row)].filter(Boolean).join(' · '));break}
  case 'editLesson':window.bgauScheduleCloud?.openEditor(Number(target.dataset.index));break;
+ case 'tomorrowNew':
+  save('bash_tomorrow_feature_opened','1');
+  target.hidden=true;
+  openModal('tomorrow');
+  returnFocus=$('tomorrowButton');
+  break;
  case 'tomorrow':openModal('tomorrow');break;
  case 'eveningReminder':await toggleEveningReminder();break;
  case 'notifications':await toggleNotifications();break;
@@ -604,7 +610,10 @@ for(const [lang,[tomorrow,eveningReminder,reminderScope,noClassesTomorrow]] of O
 })){
  Object.assign(I18N[lang],{tomorrow,eveningReminder,reminderScope,noClassesTomorrow});
 }
-const APP_RELEASE='2026-11-25.1';
+for(const [lang,[tomorrowNew,enableEveningReminder,openTomorrowClasses]] of Object.entries({"ru":["Новая функция","Включить вечернее напоминание","Открой расписание, чтобы посмотреть пары."],"en":["New feature","Turn on the evening reminder","Open the timetable to see your classes."],"es":["Nueva función","Activar el recordatorio","Abre el horario para ver las clases."],"fr":["Nouveauté","Activer le rappel du soir","Ouvrez l’emploi du temps pour voir les cours."],"pt":["Nova função","Ativar o lembrete","Abra o horário para ver as aulas."]})){
+ Object.assign(I18N[lang],{tomorrowNew,enableEveningReminder,openTomorrowClasses});
+}
+const APP_RELEASE='2026-11-25.2';
 const SCHEDULE_RELEASE='2026-11-24';
 const SUPPORT_LINKS={telegram:'https://t.me/csenchis',max:'https://max.ru/u/f9LHodD0cOLBig0ncSmZu-eTLwPD-Hm-RjLt9f2f7IFpYJJtNziGpqJPshc'};
 const jsonRead=(key,fallback)=>{try{return JSON.parse(read(key))??fallback}catch{return fallback}};
@@ -1100,11 +1109,11 @@ function renderTomorrow(){
  const enabled=read('bash_evening_reminder')==='1' && window.Notification?.permission==='granted';
  $('modalTitle').textContent=t('tomorrow');
  const summary=rows.map(row=>'<article class="change-item"><strong>'+esc(tomorrowLesson(row))+'</strong></article>').join('');
- $('modalBody').innerHTML='<p class="muted">'+esc(localeDate(date))+' · '+esc(DATA.labels[state.group])+'</p>'+
-  (summary||'<p>'+esc(t('noClassesTomorrow'))+'</p>')+
-  '<button class="menu-item" data-action="eveningReminder" aria-pressed="'+enabled+'"><span>'+esc(t('eveningReminder'))+
-  '<small>'+esc(t(enabled?'notificationsOn':'notificationsOff'))+'</small></span>'+uiIcon('bells')+'</button>'+
-  '<p class="muted">'+esc(t('reminderScope'))+'</p>';
+ $('modalBody').innerHTML='<button class="menu-item" data-action="eveningReminder" aria-pressed="'+enabled+'"><span>'+
+  esc(t(enabled?'eveningReminder':'enableEveningReminder'))+'<small>'+esc(t(enabled?'notificationsOn':'notificationsOff'))+
+  '</small></span>'+uiIcon('bells')+'</button><p class="muted">'+esc(t('reminderScope'))+'</p>'+
+  '<p class="muted">'+esc(localeDate(date))+' · '+esc(DATA.labels[state.group])+'</p>'+
+  (summary||'<p>'+esc(t('noClassesTomorrow'))+'</p>');
 }
 async function toggleEveningReminder(){
  if(!window.isSecureContext || !window.Notification || !('serviceWorker' in navigator)){
@@ -1136,11 +1145,11 @@ async function deliverEveningReminder(clock){
  try{
   const registration=await navigator.serviceWorker.getRegistration();
   if(!registration?.active || state.group!==group || read('bash_evening_reminder')!=='1' || read('bash_evening_sent')===dayKey)return;
-  let body=localeDate(date);
-  if(!inPersonalGroup()){
-   body=rows.length?rows.slice(0,2).map(tomorrowLesson).join('\n'):t('noClassesTomorrow');
-   if(rows.length>2)body+='\n'+t('lessonsCount',{n:rows.length});
-  }
+  const count=new Set(rows.map(row=>row[1]+':'+row[9])).size;
+  const forms={one:'пара',few:'пары',many:'пар',other:'пар'};
+  const summary=!count?t('noClassesTomorrow'):state.lang==='ru'?
+   'Завтра '+count+' '+forms[new Intl.PluralRules('ru').select(count)]:t('lessonsCount',{n:count});
+  const body=summary+'. '+t('openTomorrowClasses');
   await registration.showNotification(t('tomorrow'),{
    body,icon:'./icon-192.png',tag:'bashgau-tomorrow-'+dayKey,data:{tomorrow:true}
   });
@@ -1298,6 +1307,14 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkNewVe
 const brandImage=$('brandIcon');brandImage.addEventListener('load',()=>{brandImage.hidden=false;$('brandFallback').hidden=true});brandImage.addEventListener('error',()=>{brandImage.hidden=true;$('brandFallback').hidden=false});brandImage.src='./icon.png';
 render(true);
 if(!state.languageChosen){$('onboardLanguages').innerHTML=languageChoices();$('onboard').hidden=false;syncOverlays()}
+const tomorrowBadge=$('tomorrowNew');
+if(tomorrowBadge && read('bash_tomorrow_feature_opened')!=='1'){
+ tomorrowBadge.hidden=false;
+ if(read('bash_tomorrow_feature_seen')!=='1'){
+  save('bash_tomorrow_feature_seen','1');
+  tomorrowBadge.classList.add('feature-pulse');
+ }
+}
 setupOffline();
 checkNewVersion();
 let lastScheduleMinute='',lastCalendarDay='',trackedWeek=currentWeek(),trackedDay=today();

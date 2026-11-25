@@ -55,6 +55,7 @@
   const redirectTo = new URL('./account.html', location.href).href;
   const params = new URLSearchParams(location.search);
   const nextSchedule = params.get('next') === 'schedule';
+  const scheduleUrl = new URL(params.get('tomorrow')==='1'?'./?tomorrow=1':'./',location.href).href;
   let mode = 'login', actor = null, role = '', generation = 0, listing = 0, search = '', offset = 0;
   let signupStep = 0;
   let authBusy = false;
@@ -271,14 +272,14 @@
       showProfile(account);
       if(account.banned){notify('banNotice',true);return}
       if(role==='teacher'){
-        if(nextSchedule){location.replace(new URL('./',location.href).href);return}
+        if(nextSchedule){location.replace(scheduleUrl);return}
         el('teacherPanel').hidden=false;
       }
       if(nextSchedule&&(account.profile||role==='admin')) {
         const { data: access, error: accessError } = await client.rpc('bgau_access_status');
         if (request !== generation) return;
         if (accessError) throw accessError;
-        if (access === 'ready') { location.replace(new URL('./',location.href).href); return; }
+        if (access === 'ready') { location.replace(scheduleUrl); return; }
       }
       el('profileSettings').hidden=false;
       void loadPersonalLinks(request);
@@ -696,7 +697,7 @@
       if (response.error) throw response.error;
       el('authPassword').value = '';
       if (action === 'signup') {
-        if (response.data.session) location.replace(new URL('./', location.href).href);
+        if (response.data.session) location.replace(scheduleUrl);
         else {
           setMode('login');
           notify('confirmFallback');

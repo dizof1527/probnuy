@@ -15,6 +15,7 @@
   function goToAccount(reason) {
     const url = new URL('./account.html',location.href);
     url.searchParams.set('next','schedule');
+    if(new URLSearchParams(location.search).get('tomorrow')==='1')url.searchParams.set('tomorrow','1');
     if (reason) url.searchParams.set('reason',reason);
     location.replace(url.href);
   }
